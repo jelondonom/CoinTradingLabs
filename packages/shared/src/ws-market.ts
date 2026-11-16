@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { candleIntervalSchema, candleSchema } from './candle.js';
 import { symbolSchema } from './instrument.js';
+import { timestampSchema } from './primitives.js';
 import { tickSchema } from './tick.js';
 import { wsErrorSchema, wsPingSchema, wsPongSchema } from './ws-common.js';
 
@@ -21,9 +22,23 @@ export const marketClientMessageSchema = z.discriminatedUnion('type', [
 ]);
 export type MarketClientMessage = z.infer<typeof marketClientMessageSchema>;
 
+/**
+ * Estado del precio de un símbolo. `stale: true` significa que el último tick está desactualizado
+ * porque el proveedor dejó de enviar precios. El umbral por símbolo lo define `apps/market-data`.
+ */
+export const symbolStatusSchema = z.object({
+  symbol: symbolSchema,
+  stale: z.boolean(),
+  /** Momento en que cambió el estado. */
+  ts: timestampSchema,
+});
+export type SymbolStatus = z.infer<typeof symbolStatusSchema>;
+
 export const marketServerMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('tick'), data: tickSchema }),
   z.object({ type: z.literal('candle'), data: candleSchema }),
+  /** Se envía por cada símbolo al suscribirse y cada vez que su estado cambia. */
+  z.object({ type: z.literal('status'), data: symbolStatusSchema }),
   /** Confirma la lista completa de símbolos suscritos tras un subscribe o unsubscribe. */
   z.object({ type: z.literal('subscribed'), symbols: z.array(symbolSchema) }),
   wsPongSchema,

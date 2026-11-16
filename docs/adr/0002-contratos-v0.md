@@ -35,6 +35,20 @@ apalancamiento 1:1 sin margen ni stop-out, solo órdenes market de compra y vent
     `order.update`, `position.update`, `position.closed`, `pong`, `error`.
 - `CONTRACT_VERSION = 0`. Un cambio incompatible sube la versión y se avisa a los agentes afectados.
 
+## Actualización V1 (2026-11-16)
+
+- Catálogo de 31 símbolos: 10 cripto, 14 acciones y ETF, 6 materias primas y EURUSD. Los propuso
+  el Agente Datos de Mercado tras medir liquidez y frecuencia en Binance.
+- EURUSD pasa de 5 a 4 decimales, porque así lo cotiza el proveedor.
+- USDCOP queda fuera: cotiza en pesos y obligaría a cambiar `quoteCurrency` y a convertir el P&L.
+- Acciones, ETF y materias primas salen de contratos perpetuos contra USDT: siguen al activo, pero
+  no son precios de bolsa. USDT se trata como USD.
+- Mensaje nuevo de mercado `status` (`symbol`, `stale`, `ts`), enviado al suscribirse y en cada
+  cambio. No va dentro del tick porque un símbolo desactualizado es justo el que no emite ticks.
+  El umbral por símbolo vive en la configuración de `market-data`, no en el contrato.
+- `quantityPrecision` de los símbolos nuevos es provisional hasta que lo confirme el Agente Backend.
+- `CONTRACT_VERSION = 1`.
+
 ## Consecuencias
 
 - `number` simplifica las gráficas y el flujo de ticks, pero obliga a redondear en un solo lugar.

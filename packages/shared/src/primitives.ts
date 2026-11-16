@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Versión de los contratos. Se incrementa con cada cambio incompatible. */
-export const CONTRACT_VERSION = 0;
+export const CONTRACT_VERSION = 1;
 
 /** Marca de tiempo: milisegundos desde epoch, UTC. */
 export const timestampSchema = z.number().int().nonnegative();
