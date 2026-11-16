@@ -52,7 +52,7 @@ No hace falta un archivo `.env` en desarrollo. Para cambiar un valor, copia `.en
 ## Estado V0
 
 - Saldo inicial de 100.000 USD, apalancamiento 1:1, solo órdenes market.
-- Símbolos: BTCUSD, ETHUSD, AAPL, NVDA, EURUSD, XAUUSD.
+- Catálogo de 31 símbolos: 10 cripto, 14 acciones y ETF, 6 materias primas y EURUSD.
 - Los precios son simulados: todavía no hay un proveedor de mercado conectado.
 - Los contratos están en `packages/shared` y sus convenciones en `docs/adr/0002-contratos-v0.md`.
 

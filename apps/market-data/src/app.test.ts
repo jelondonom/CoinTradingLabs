@@ -74,7 +74,7 @@ describe('market-data', () => {
     const client = await connect(app);
 
     client.send({ type: 'ping' });
-    client.send({ type: 'subscribe', symbols: ['TSLA'] });
+    client.send({ type: 'subscribe', symbols: ['JPM'] });
     await client.waitFor(2);
 
     expect(client.messages[0]?.type).toBe('pong');
