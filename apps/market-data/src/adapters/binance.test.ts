@@ -1,4 +1,4 @@
-import type { Tick } from '@coin/shared';
+import { SYMBOLS, type Tick } from '@coin/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FUTURES_MESSAGES, SPOT_MESSAGES } from '../normalizer/binance.fixtures.js';
 import { BinanceFeedAdapter, type SocketLike } from './binance.js';
@@ -68,13 +68,25 @@ describe('BinanceFeedAdapter', () => {
     expect(feed.simulated).toBe(false);
   });
 
-  it('abre una sola conexión por mercado con los streams del catálogo', async () => {
-    const { feed, handlers, sockets } = setup();
+  it('abre una sola conexión por mercado con los streams pedidos', async () => {
+    const { feed, handlers, sockets } = setup({
+      symbols: ['BTCUSD', 'ETHUSD', 'EURUSD', 'AAPL', 'NVDA', 'XAUUSD'],
+    });
     await feed.start(handlers);
     expect(sockets.map((socket) => socket.url)).toEqual([
       'wss://spot.test/stream?streams=btcusdt@bookTicker/ethusdt@bookTicker/eurusdt@bookTicker',
       'wss://futures.test/stream?streams=aaplusdt@bookTicker/nvdausdt@bookTicker/xauusdt@bookTicker',
     ]);
+    await feed.stop();
+  });
+
+  it('con el catálogo completo usa dos conexiones y un stream por símbolo', async () => {
+    const { feed, handlers, sockets } = setup();
+    await feed.start(handlers);
+    expect(sockets).toHaveLength(2);
+    const streams = sockets.flatMap((socket) => socket.url.split('streams=')[1]?.split('/') ?? []);
+    expect(streams).toHaveLength(SYMBOLS.length);
+    expect(new Set(streams).size).toBe(SYMBOLS.length);
     await feed.stop();
   });
 

@@ -7,6 +7,7 @@ import {
   type HealthResponse,
   type InstrumentSymbol,
   type MarketServerMessage,
+  type SymbolStatus,
   type Tick,
 } from '@coin/shared';
 import websocket from '@fastify/websocket';
@@ -23,10 +24,17 @@ export type MarketDataApp = {
   server: FastifyInstance;
   /** Envía el tick, y la vela que le corresponde, a los clientes suscritos al símbolo. */
   publishTick: (tick: Tick) => void;
+  /** Guarda el estado del símbolo y lo envía a los clientes suscritos a él. */
+  publishStatus: (status: SymbolStatus) => void;
   clientCount: () => number;
 };
 
 export async function buildApp(options: { logLevel?: string } = {}): Promise<MarketDataApp> {
+  const startedAt = Date.now();
+  const statuses = new Map<InstrumentSymbol, SymbolStatus>();
+  /** Sin estado publicado todavía no hay precio: el símbolo se informa como desactualizado. */
+  const statusOf = (symbol: InstrumentSymbol): SymbolStatus =>
+    statuses.get(symbol) ?? { symbol, stale: true, ts: startedAt };
   const server = Fastify({
     logger: options.logLevel ? { level: options.logLevel } : false,
   });
@@ -70,6 +78,11 @@ export async function buildApp(options: { logLevel?: string } = {}): Promise<Mar
           break;
       }
       send({ type: 'subscribed', symbols: [...subscription.symbols] });
+      if (message.type === 'subscribe') {
+        for (const symbol of new Set(message.symbols)) {
+          send({ type: 'status', data: statusOf(symbol) });
+        }
+      }
     });
 
     socket.on('close', () => clients.delete(socket));
@@ -97,5 +110,14 @@ export async function buildApp(options: { logLevel?: string } = {}): Promise<Mar
     }
   }
 
-  return { server, publishTick, clientCount: () => clients.size };
+  function publishStatus(status: SymbolStatus): void {
+    statuses.set(status.symbol, status);
+    const payload = JSON.stringify({ type: 'status', data: status } satisfies MarketServerMessage);
+    for (const [socket, subscription] of clients) {
+      if (socket.readyState !== socket.OPEN || !subscription.symbols.has(status.symbol)) continue;
+      socket.send(payload);
+    }
+  }
+
+  return { server, publishTick, publishStatus, clientCount: () => clients.size };
 }

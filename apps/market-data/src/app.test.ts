@@ -56,16 +56,45 @@ describe('market-data', () => {
     const client = await connect(app);
 
     client.send({ type: 'subscribe', symbols: ['BTCUSD'], candleInterval: '1m' });
-    await client.waitFor(1);
+    await client.waitFor(2);
     expect(client.messages[0]).toEqual({ type: 'subscribed', symbols: ['BTCUSD'] });
+    expect(client.messages[1]).toMatchObject({ type: 'status', data: { symbol: 'BTCUSD' } });
 
     app.publishTick({ symbol: 'ETHUSD', bid: 3499, ask: 3501, last: 3500, ts: 60_000 });
     app.publishTick({ symbol: 'BTCUSD', bid: 94_990, ask: 95_010, last: 95_000, ts: 60_000 });
-    await client.waitFor(3);
+    await client.waitFor(4);
 
-    expect(client.messages.slice(1).map((message) => message.type)).toEqual(['tick', 'candle']);
-    expect(client.messages[1]).toMatchObject({ data: { symbol: 'BTCUSD', last: 95_000 } });
-    expect(client.messages[2]).toMatchObject({ data: { interval: '1m', open: 95_000 } });
+    expect(client.messages.slice(2).map((message) => message.type)).toEqual(['tick', 'candle']);
+    expect(client.messages[2]).toMatchObject({ data: { symbol: 'BTCUSD', last: 95_000 } });
+    expect(client.messages[3]).toMatchObject({ data: { interval: '1m', open: 95_000 } });
+    client.close();
+  });
+
+  it('informa el estado al suscribirse y en cada cambio, solo de los símbolos suscritos', async () => {
+    app = await buildApp();
+    app.publishStatus({ symbol: 'AAPL', stale: false, ts: 1_000 });
+    const client = await connect(app);
+
+    client.send({ type: 'subscribe', symbols: ['AAPL', 'BTCUSD'] });
+    await client.waitFor(3);
+    expect(client.messages[1]).toEqual({
+      type: 'status',
+      data: { symbol: 'AAPL', stale: false, ts: 1_000 },
+    });
+    // Sin precio todavía, el símbolo se informa como desactualizado.
+    expect(client.messages[2]).toMatchObject({
+      type: 'status',
+      data: { symbol: 'BTCUSD', stale: true },
+    });
+
+    app.publishStatus({ symbol: 'ETHUSD', stale: true, ts: 2_000 });
+    app.publishStatus({ symbol: 'AAPL', stale: true, ts: 3_000 });
+    await client.waitFor(4);
+    expect(client.messages[3]).toEqual({
+      type: 'status',
+      data: { symbol: 'AAPL', stale: true, ts: 3_000 },
+    });
+    expect(client.messages).toHaveLength(4);
     client.close();
   });
 
