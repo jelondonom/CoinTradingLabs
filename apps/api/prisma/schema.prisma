@@ -1,0 +1,12 @@
+// Esquema de base de datos de COIN Trading Labs.
+// Los modelos (cuentas, órdenes, posiciones) los define el Agente Backend Motor de Trading
+// a partir de los contratos de `packages/shared`.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
