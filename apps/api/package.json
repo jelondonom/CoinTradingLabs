@@ -8,11 +8,19 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage --coverage.include=src/engine/**/*.ts --coverage.exclude=src/engine/index.ts --coverage.thresholds.lines=90 --coverage.thresholds.branches=90",
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx --env-file-if-exists=../../.env src/db/seed.ts"
   },
   "dependencies": {
     "@coin/shared": "workspace:*",
     "@fastify/websocket": "11.3.7",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "decimal.js": "10.6.0",
     "fastify": "5.12.8",
     "ioredis": "6.0.0",
     "pg": "8.23.1",
@@ -21,6 +29,7 @@
   "devDependencies": {
     "@types/pg": "8.23.1",
     "@types/ws": "8.18.2",
+    "@vitest/coverage-v8": "5.1.0",
     "prisma": "7.10.1"
   }
 }
