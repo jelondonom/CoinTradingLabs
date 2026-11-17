@@ -1,131 +1,68 @@
+@import 'tailwindcss';
+
+/* Colores provisionales: la identidad visual de COIN la define el Gerente. */
 :root {
-  --bg: #f6f7f9;
+  --bg: #f4f5f7;
   --surface: #ffffff;
+  --raised: #eaedf1;
   --text: #14181f;
-  --muted: #5b6472;
-  --border: #dde1e7;
-  --ok-bg: #e2f5ea;
-  --ok-text: #14633a;
+  --muted: #566070;
+  --line: #d5d9e0;
+  --up: #0b7a3e;
+  --down: #c62828;
+  --accent: #1f4fd8;
   --warn-bg: #fdf0d5;
   --warn-text: #7a4b00;
   color-scheme: light dark;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0f1216;
     --surface: #181c22;
+    --raised: #252b34;
     --text: #e8ebf0;
-    --muted: #98a2b1;
-    --border: #2a3039;
-    --ok-bg: #12351f;
-    --ok-text: #8fe0ae;
+    --muted: #9aa4b2;
+    --line: #2a3039;
+    --up: #4ade80;
+    --down: #f87171;
+    --accent: #7aa2ff;
     --warn-bg: #3d2c08;
     --warn-text: #f3cf85;
   }
 }
 
-* {
-  box-sizing: border-box;
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --color-accent: var(--accent);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-text: var(--warn-text);
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  overscroll-behavior: none;
 }
 
-main {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 24px 16px 48px;
+button {
+  cursor: pointer;
 }
 
-h1 {
-  margin: 0;
-  font-size: 1.5rem;
+button:disabled {
+  cursor: not-allowed;
 }
 
-.subtitle {
-  margin: 4px 0 12px;
-  color: var(--muted);
-}
-
-.badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.badge {
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-}
-
-.badge.ok {
-  background: var(--ok-bg);
-  color: var(--ok-text);
-}
-
-.badge.warn {
-  background: var(--warn-bg);
-  color: var(--warn-text);
-}
-
-.table-wrap {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th,
-td {
-  padding: 12px 14px;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-}
-
-tbody tr:last-child td {
-  border-bottom: none;
-}
-
-th {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.symbol {
-  font-weight: 600;
-}
-
-.note {
-  margin-top: 14px;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-@media (max-width: 480px) {
-  .hide-narrow {
-    display: none;
-  }
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

@@ -1,0 +1,1101 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Boceto terminal V1 · COIN Trading Labs</title>
+    <style>
+      :root {
+        --ink: #1b1f26;
+        --mid: #6a7280;
+        --line: #b9bfc9;
+        --fill: #eef0f3;
+        --paper: #ffffff;
+        --page: #f4f5f7;
+        --note: #b4540a;
+        font-family:
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        color: var(--ink);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--page);
+        padding: 24px 16px 64px;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 16px;
+        margin: 40px 0 4px;
+      }
+      p.lead {
+        margin: 0 0 16px;
+        color: var(--mid);
+        max-width: 760px;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 28px;
+        align-items: flex-start;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .scroll {
+        overflow-x: auto;
+        padding-bottom: 8px;
+      }
+
+      /* Marco de teléfono */
+      .phone {
+        width: 360px;
+        height: 720px;
+        background: var(--paper);
+        border: 2px solid var(--ink);
+        border-radius: 18px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      .desk {
+        width: 1280px;
+        height: 760px;
+        background: var(--paper);
+        border: 2px solid var(--ink);
+        border-radius: 8px;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 260px 1fr 300px;
+        grid-template-rows: 52px 1fr 210px;
+      }
+
+      /* Piezas */
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--line);
+        flex: none;
+      }
+      .h48 {
+        height: 48px;
+      }
+      .h52 {
+        height: 52px;
+      }
+      .sp {
+        flex: 1;
+      }
+      .logo {
+        font-weight: 800;
+        letter-spacing: 0.5px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid var(--ink);
+        border-radius: 999px;
+        padding: 3px 9px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .pill.dash {
+        border-style: dashed;
+      }
+      .pill.solid {
+        background: var(--ink);
+        color: var(--paper);
+      }
+      .chip {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .chip.on {
+        background: var(--ink);
+        color: var(--paper);
+        border-color: var(--ink);
+      }
+      .muted {
+        color: var(--mid);
+      }
+      .small {
+        font-size: 11px;
+      }
+      .big {
+        font-size: 18px;
+        font-weight: 700;
+      }
+      .num {
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+      .b {
+        font-weight: 700;
+      }
+      .chart {
+        position: relative;
+        background: var(--fill);
+        border-bottom: 1px solid var(--line);
+        flex: none;
+      }
+      .chart svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .chart .attr {
+        position: absolute;
+        left: 8px;
+        bottom: 6px;
+        font-size: 10px;
+        color: var(--mid);
+      }
+      .chart .tag {
+        position: absolute;
+        right: 0;
+        font-size: 10px;
+        background: var(--ink);
+        color: var(--paper);
+        padding: 1px 5px;
+      }
+      .chart .posline {
+        position: absolute;
+        left: 0;
+        right: 0;
+        border-top: 1.5px dashed var(--ink);
+      }
+      .chart .poslabel {
+        position: absolute;
+        left: 8px;
+        font-size: 10px;
+        background: var(--paper);
+        border: 1px solid var(--ink);
+        padding: 1px 5px;
+      }
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid var(--line);
+        flex: none;
+      }
+      .tabs > div {
+        flex: 1;
+        text-align: center;
+        padding: 12px 4px;
+        color: var(--mid);
+      }
+      .tabs > div.on {
+        color: var(--ink);
+        font-weight: 700;
+        box-shadow: inset 0 -3px 0 var(--ink);
+      }
+      .body {
+        flex: 1;
+        padding: 12px;
+        overflow: hidden;
+      }
+      .field {
+        border: 1.5px solid var(--ink);
+        border-radius: 8px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        gap: 8px;
+      }
+      .btns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .btn {
+        border: 2px solid var(--ink);
+        border-radius: 10px;
+        min-height: 56px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+      }
+      .btn.fill {
+        background: var(--ink);
+        color: var(--paper);
+      }
+      .btn.h44 {
+        min-height: 44px;
+      }
+      .btn span {
+        font-weight: 400;
+        font-size: 11px;
+      }
+      .nav {
+        display: flex;
+        border-top: 1px solid var(--ink);
+        height: 56px;
+        flex: none;
+      }
+      .nav > div {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        color: var(--mid);
+        gap: 2px;
+      }
+      .nav > div.on {
+        color: var(--ink);
+        font-weight: 700;
+      }
+      .nav i {
+        width: 18px;
+        height: 18px;
+        border: 1.5px solid currentColor;
+        border-radius: 4px;
+        display: block;
+      }
+      .item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 52px;
+        border-bottom: 1px solid var(--line);
+        padding: 6px 0;
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 10px;
+      }
+      .sheet {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--paper);
+        border-top: 2px solid var(--ink);
+        border-radius: 16px 16px 0 0;
+        padding: 16px;
+      }
+      .scrim {
+        position: absolute;
+        inset: 0;
+        background: rgba(27, 31, 38, 0.45);
+      }
+      .kv {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px dashed var(--line);
+      }
+      .toast {
+        border: 1.5px solid var(--ink);
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin-top: 12px;
+        background: var(--fill);
+      }
+      .n {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--note);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        flex: none;
+      }
+      .abs {
+        position: absolute;
+        z-index: 2;
+      }
+      ol.notes {
+        margin: 10px 0 0;
+        padding: 0;
+        list-style: none;
+        max-width: 360px;
+      }
+      ol.notes.wide {
+        max-width: 900px;
+        columns: 2;
+        column-gap: 32px;
+      }
+      ol.notes li {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 6px;
+        break-inside: avoid;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 7px 10px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        white-space: nowrap;
+      }
+      th {
+        font-size: 11px;
+        color: var(--mid);
+        font-weight: 600;
+      }
+      .cell {
+        border-right: 1px solid var(--line);
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+      }
+      .states {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+        max-width: 1100px;
+      }
+      .states .card {
+        background: var(--paper);
+        margin: 0;
+      }
+      .banner {
+        border: 1.5px dashed var(--ink);
+        padding: 6px 10px;
+        margin-top: 8px;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Boceto de la terminal · V1 (baja fidelidad)</h1>
+    <p class="lead">
+      Agente Frontend + Gráficas + UX · Tarea H0–H1 · Pendiente de aprobación del Gerente. Sin
+      colores ni marca: solo estructura, jerarquía y textos. Los valores son de ejemplo. Los
+      círculos naranjas remiten a las notas bajo cada pantalla.
+    </p>
+
+    <h2>1. Móvil · 360 px</h2>
+    <div class="row">
+      <!-- M1 -->
+      <figure>
+        <figcaption>M1 · Terminal, pestaña «Operar»</figcaption>
+        <div class="phone">
+          <div class="bar h48">
+            <span class="logo">COIN</span>
+            <span class="pill">● En vivo</span>
+            <span class="n">1</span>
+            <span class="sp"></span>
+            <span class="num"
+              ><span class="muted small">Patrimonio</span><br /><span class="b"
+                >$100.412,50</span
+              ></span
+            >
+          </div>
+          <div class="bar h52">
+            <span class="b" style="font-size: 15px">BTCUSD ▾</span>
+            <span class="n">2</span>
+            <span class="sp"></span>
+            <span class="num"
+              ><span class="b">67.245,10</span><br /><span class="small">▲ +1,24 % hoy</span></span
+            >
+          </div>
+          <div class="bar" style="height: 40px; gap: 4px; padding: 0 8px">
+            <span class="chip">1m</span><span class="chip on">5m</span><span class="chip">15m</span
+            ><span class="chip">1h</span><span class="chip">1d</span>
+            <span class="sp"></span>
+            <span class="chip">Velas</span><span class="chip">ƒ Indic.</span>
+            <span class="n">3</span>
+          </div>
+          <div class="chart" style="height: 250px">
+            <svg data-candles viewBox="0 0 360 250" preserveAspectRatio="none"></svg>
+            <span class="tag" style="top: 62px">67.245,10</span>
+            <div class="posline" style="top: 128px"></div>
+            <span class="poslabel" style="top: 119px">Compra 0,0149 · ▲ +$12,50</span>
+            <span class="n abs" style="top: 100px; left: 170px">4</span>
+            <span class="attr">Gráfica: TradingView Lightweight Charts™</span>
+          </div>
+          <div class="tabs">
+            <div class="on">Operar</div>
+            <div>Posiciones (2)</div>
+            <div>Historial</div>
+          </div>
+          <div class="body">
+            <div class="muted small" style="margin-bottom: 4px">
+              ¿Cuánto quieres invertir? <span class="n">5</span>
+            </div>
+            <div class="field">
+              <span class="muted">USD</span><span class="big">1.000</span><span class="sp"></span
+              ><span class="muted small">≈ 0,0149 BTC</span>
+            </div>
+            <div style="display: flex; gap: 6px; margin: 8px 0 10px">
+              <span class="chip">$100</span><span class="chip on">$1.000</span
+              ><span class="chip">$5.000</span><span class="chip">10 %</span
+              ><span class="chip">Máx.</span>
+            </div>
+            <div class="btns">
+              <div class="btn">▼ Vender<span>67.243,80</span></div>
+              <div class="btn fill">▲ Comprar<span>67.246,40</span></div>
+            </div>
+            <div class="muted small" style="margin-top: 8px">
+              Disponible: $98.000,00 <span class="n">6</span>
+            </div>
+          </div>
+          <div class="nav">
+            <div class="on"><i></i>Terminal</div>
+            <div><i></i>Mercados</div>
+            <div><i></i>Ranking</div>
+            <div><i></i>Cuenta</div>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>
+            <span class="n">1</span
+            ><span>Estado de conexión siempre visible. Ver sección 3 para sus variantes.</span>
+          </li>
+          <li>
+            <span class="n">2</span
+            ><span
+              >Tocar el símbolo abre la lista de mercados (M3). Cambio del día con flecha y signo,
+              no solo color.</span
+            >
+          </li>
+          <li>
+            <span class="n">3</span
+            ><span
+              >Temporalidades del contrato: 1m, 5m, 15m, 1h, 1d. Tipo de gráfica e indicadores en
+              menús.</span
+            >
+          </li>
+          <li>
+            <span class="n">4</span
+            ><span
+              >Línea de la posición abierta sobre la gráfica, con su resultado enviado por el
+              servidor.</span
+            >
+          </li>
+          <li>
+            <span class="n">5</span
+            ><span
+              >Ticket simple: el principiante escribe un monto en dólares, no una cantidad. La
+              cantidad equivalente es informativa.</span
+            >
+          </li>
+          <li>
+            <span class="n">6</span
+            ><span>Botones de 56 px de alto. Cada uno muestra el precio al que se ejecutaría.</span>
+          </li>
+        </ol>
+      </figure>
+
+      <!-- M2 -->
+      <figure>
+        <figcaption>M2 · Terminal, pestaña «Posiciones»</figcaption>
+        <div class="phone">
+          <div class="bar h48">
+            <span class="logo">COIN</span><span class="pill">● En vivo</span><span class="sp"></span
+            ><span class="num"
+              ><span class="muted small">Patrimonio</span><br /><span class="b"
+                >$100.412,50</span
+              ></span
+            >
+          </div>
+          <div class="bar h52">
+            <span class="b" style="font-size: 15px">BTCUSD ▾</span><span class="sp"></span
+            ><span class="num"
+              ><span class="b">67.245,10</span><br /><span class="small">▲ +1,24 % hoy</span></span
+            >
+          </div>
+          <div class="chart" style="height: 150px">
+            <svg data-candles viewBox="0 0 360 150" preserveAspectRatio="none"></svg>
+            <span class="n abs" style="top: 8px; right: 8px">1</span>
+            <span class="attr">Gráfica: TradingView Lightweight Charts™</span>
+          </div>
+          <div class="tabs">
+            <div>Operar</div>
+            <div class="on">Posiciones (2)</div>
+            <div>Historial</div>
+          </div>
+          <div class="body">
+            <div class="card">
+              <div style="display: flex">
+                <span class="b">BTCUSD</span>&nbsp;<span class="pill small">▲ Compra</span
+                ><span class="sp"></span><span class="b">▲ +$12,50</span>
+              </div>
+              <div class="muted small" style="margin: 4px 0 8px">
+                0,0149 · entrada 66.406,00 · ahora 67.243,80
+              </div>
+              <div class="btn h44">Cerrar posición <span class="n">2</span></div>
+            </div>
+            <div class="card">
+              <div style="display: flex">
+                <span class="b">AAPL</span>&nbsp;<span class="pill small">▲ Compra</span
+                ><span class="sp"></span><span class="b">▼ −$8,20</span>
+              </div>
+              <div class="muted small" style="margin: 4px 0 8px">
+                4,00 · entrada 231,40 · ahora 229,35
+              </div>
+              <div class="btn h44">Cerrar posición</div>
+            </div>
+            <div class="kv small">
+              <span class="muted">Resultado abierto total</span><span class="b">▲ +$4,30</span>
+            </div>
+            <div class="muted small" style="margin-top: 6px">
+              Tocar una tarjeta lleva la gráfica a ese símbolo. <span class="n">3</span>
+            </div>
+          </div>
+          <div class="nav">
+            <div class="on"><i></i>Terminal</div>
+            <div><i></i>Mercados</div>
+            <div><i></i>Ranking</div>
+            <div><i></i>Cuenta</div>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>
+            <span class="n">1</span
+            ><span
+              >La gráfica se encoge al salir de «Operar» para dar espacio a la lista; nunca
+              desaparece.</span
+            >
+          </li>
+          <li>
+            <span class="n">2</span
+            ><span
+              >«Cerrar posición» en lugar de pedir al usuario que haga la orden contraria. Pide
+              confirmación (M4).</span
+            >
+          </li>
+          <li>
+            <span class="n">3</span
+            ><span
+              >Ganancia o pérdida siempre con flecha y signo. «Historial» lista las órdenes
+              ejecutadas y rechazadas.</span
+            >
+          </li>
+        </ol>
+      </figure>
+
+      <!-- M3 -->
+      <figure>
+        <figcaption>M3 · Mercados (lista de símbolos)</figcaption>
+        <div class="phone">
+          <div class="bar h48">
+            <span class="logo">COIN</span><span class="pill">● En vivo</span><span class="sp"></span
+            ><span class="num"
+              ><span class="muted small">Patrimonio</span><br /><span class="b"
+                >$100.412,50</span
+              ></span
+            >
+          </div>
+          <div style="padding: 10px 12px 0">
+            <div class="field" style="height: 44px">
+              <span class="muted">🔍 Buscar símbolo o nombre</span>
+            </div>
+            <div style="display: flex; gap: 6px; margin: 10px 0 4px; overflow: hidden">
+              <span class="chip on">Todos</span><span class="chip">★</span
+              ><span class="chip">Cripto</span><span class="chip">Acciones</span
+              ><span class="chip">Mat. primas</span><span class="chip">Divisas</span>
+              <span class="n">1</span>
+            </div>
+          </div>
+          <div class="body" style="padding-top: 0">
+            <div class="item">
+              <span>★</span>
+              <span
+                ><span class="b">BTCUSD</span><br /><span class="muted small">Bitcoin</span></span
+              >
+              <span class="sp"></span>
+              <span class="num"
+                ><span class="b">67.245,10</span><br /><span class="small">▲ +1,24 %</span></span
+              >
+            </div>
+            <div class="item">
+              <span>☆</span>
+              <span
+                ><span class="b">ETHUSD</span><br /><span class="muted small">Ethereum</span></span
+              >
+              <span class="sp"></span>
+              <span class="num"
+                ><span class="b">3.412,55</span><br /><span class="small">▼ −0,48 %</span></span
+              >
+            </div>
+            <div class="item">
+              <span>☆</span>
+              <span><span class="b">AAPL</span><br /><span class="muted small">Apple</span></span>
+              <span class="sp"></span>
+              <span class="num"
+                ><span class="b">229,35</span><br /><span class="small">▼ −0,89 %</span></span
+              >
+            </div>
+            <div class="item">
+              <span>☆</span>
+              <span
+                ><span class="b">NVDA</span> <span class="pill dash small">Sin datos recientes</span
+                ><br /><span class="muted small">Nvidia</span></span
+              >
+              <span class="sp"></span>
+              <span class="num muted"
+                ><span class="b">141,20</span><br /><span class="small">hace 45 s</span></span
+              >
+              <span class="n">2</span>
+            </div>
+            <div class="item">
+              <span>☆</span>
+              <span><span class="b">XAUUSD</span><br /><span class="muted small">Oro</span></span>
+              <span class="sp"></span>
+              <span class="num"
+                ><span class="b">2.655,40</span><br /><span class="small">▲ +0,31 %</span></span
+              >
+            </div>
+            <div class="item">
+              <span>☆</span>
+              <span
+                ><span class="b">EURUSD</span><br /><span class="muted small"
+                  >Euro / Dólar</span
+                ></span
+              >
+              <span class="sp"></span>
+              <span class="num"
+                ><span class="b">1,0542</span><br /><span class="small">▲ +0,05 %</span></span
+              >
+            </div>
+            <div class="item">
+              <span>☆</span>
+              <span
+                ><span class="b">SPY</span><br /><span class="muted small"
+                  >S&amp;P 500 (ETF)</span
+                ></span
+              >
+              <span class="sp"></span>
+              <span class="num"
+                ><span class="b">598,10</span><br /><span class="small">▲ +0,22 %</span></span
+              >
+            </div>
+            <div class="muted small" style="padding-top: 8px">… 31 símbolos en total</div>
+          </div>
+          <div class="nav">
+            <div><i></i>Terminal</div>
+            <div class="on"><i></i>Mercados</div>
+            <div><i></i>Ranking</div>
+            <div><i></i>Cuenta</div>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>
+            <span class="n">1</span
+            ><span
+              >Filtros por clase de activo del catálogo y favoritos (★). Tocar una fila vuelve a la
+              Terminal con ese símbolo.</span
+            >
+          </li>
+          <li>
+            <span class="n">2</span
+            ><span
+              >Símbolo desactualizado (mensaje <code>status</code> del feed): se atenúa y se avisa.
+              En la terminal bloquea Comprar/Vender.</span
+            >
+          </li>
+        </ol>
+      </figure>
+
+      <!-- M4 -->
+      <figure>
+        <figcaption>M4 · Confirmación y resultado</figcaption>
+        <div class="phone">
+          <div class="bar h48">
+            <span class="logo">COIN</span><span class="pill">● En vivo</span>
+          </div>
+          <div class="chart" style="height: 300px">
+            <svg data-candles viewBox="0 0 360 300" preserveAspectRatio="none"></svg>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="big" style="margin-bottom: 8px">
+              Confirmar compra <span class="n">1</span>
+            </div>
+            <div class="kv">
+              <span class="muted">Símbolo</span><span class="b">BTCUSD · Bitcoin</span>
+            </div>
+            <div class="kv">
+              <span class="muted">Inviertes</span><span class="b">≈ $1.000,00</span>
+            </div>
+            <div class="kv">
+              <span class="muted">Recibes</span><span class="b">0,0149 BTC</span>
+            </div>
+            <div class="kv">
+              <span class="muted">Precio estimado</span><span class="b">67.246,40</span>
+            </div>
+            <div class="muted small" style="margin: 8px 0 12px">
+              Es una orden a mercado: se ejecuta al mejor precio disponible, que puede variar un
+              poco.
+              <span class="n">2</span>
+            </div>
+            <div class="btns">
+              <div class="btn h44">Cancelar</div>
+              <div class="btn fill h44">▲ Comprar</div>
+            </div>
+            <div class="toast">
+              <span class="b">✓ Compra ejecutada</span> <span class="n">3</span><br />
+              <span class="small">0,0149 BTC a 67.246,90 · Ver posición</span>
+            </div>
+            <div class="toast" style="border-style: dashed">
+              <span class="b">✕ Orden rechazada</span><br />
+              <span class="small">No tienes saldo suficiente. Disponible: $420,00</span>
+            </div>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>
+            <span class="n">1</span
+            ><span
+              >Toda acción de dinero pide confirmación en una hoja inferior, al alcance del
+              pulgar.</span
+            >
+          </li>
+          <li>
+            <span class="n">2</span
+            ><span>El precio es estimado: el cliente no lo envía; lo fija el servidor.</span>
+          </li>
+          <li>
+            <span class="n">3</span
+            ><span
+              >Resultado claro tras responder el servidor (aquí se muestran juntos los dos casos).
+              Cada motivo de rechazo del contrato tiene su texto en lenguaje llano.</span
+            >
+          </li>
+        </ol>
+      </figure>
+    </div>
+
+    <h2>2. Escritorio · 1280 px</h2>
+    <p class="lead">
+      Mismas piezas, todas a la vista: símbolos a la izquierda, gráfica al centro, ticket a la
+      derecha y posiciones abajo. En tableta (768–1023 px) la lista de símbolos se pliega a un
+      desplegable y el ticket pasa debajo de la gráfica.
+    </p>
+    <div class="scroll">
+      <div class="desk">
+        <!-- barra superior -->
+        <div class="bar" style="grid-column: 1 / -1; gap: 16px">
+          <span class="logo" style="font-size: 16px">COIN Trading Labs</span>
+          <span class="pill">● En vivo</span><span class="n">1</span>
+          <span class="sp"></span>
+          <span class="num"
+            ><span class="muted small">Disponible</span><br /><span class="b"
+              >$98.000,00</span
+            ></span
+          >
+          <span class="num"
+            ><span class="muted small">Patrimonio</span><br /><span class="b"
+              >$100.412,50</span
+            ></span
+          >
+          <span class="num"
+            ><span class="muted small">Retorno</span><br /><span class="b">▲ +0,41 %</span></span
+          >
+          <span class="pill">Ranking #37</span><span class="n">2</span>
+          <span class="chip">? Ayuda</span><span class="chip">Cuenta ▾</span>
+        </div>
+
+        <!-- símbolos -->
+        <div class="cell" style="padding: 10px">
+          <div class="field" style="height: 36px"><span class="muted">🔍 Buscar</span></div>
+          <div style="display: flex; gap: 4px; margin: 8px 0; flex-wrap: wrap">
+            <span class="chip on">Todos</span><span class="chip">★</span
+            ><span class="chip">Cripto</span><span class="chip">Acciones</span
+            ><span class="chip">Mat. primas</span><span class="chip">Divisas</span>
+          </div>
+          <table>
+            <tr>
+              <th>Símbolo</th>
+              <th class="num">Precio</th>
+              <th class="num">Hoy</th>
+            </tr>
+            <tr style="background: var(--fill)">
+              <td class="b">BTCUSD</td>
+              <td class="num">67.245,10</td>
+              <td class="num">▲ +1,24 %</td>
+            </tr>
+            <tr>
+              <td class="b">ETHUSD</td>
+              <td class="num">3.412,55</td>
+              <td class="num">▼ −0,48 %</td>
+            </tr>
+            <tr>
+              <td class="b">SOLUSD</td>
+              <td class="num">171,32</td>
+              <td class="num">▲ +2,10 %</td>
+            </tr>
+            <tr>
+              <td class="b">AAPL</td>
+              <td class="num">229,35</td>
+              <td class="num">▼ −0,89 %</td>
+            </tr>
+            <tr class="muted">
+              <td class="b">NVDA ⚠</td>
+              <td class="num">141,20</td>
+              <td class="num">hace 45 s</td>
+            </tr>
+            <tr>
+              <td class="b">TSLA</td>
+              <td class="num">338,60</td>
+              <td class="num">▲ +0,70 %</td>
+            </tr>
+            <tr>
+              <td class="b">SPY</td>
+              <td class="num">598,10</td>
+              <td class="num">▲ +0,22 %</td>
+            </tr>
+            <tr>
+              <td class="b">XAUUSD</td>
+              <td class="num">2.655,40</td>
+              <td class="num">▲ +0,31 %</td>
+            </tr>
+            <tr>
+              <td class="b">WTIUSD</td>
+              <td class="num">68,92</td>
+              <td class="num">▼ −1,05 %</td>
+            </tr>
+            <tr>
+              <td class="b">EURUSD</td>
+              <td class="num">1,0542</td>
+              <td class="num">▲ +0,05 %</td>
+            </tr>
+          </table>
+          <span class="n abs" style="top: 96px; right: 8px">3</span>
+        </div>
+
+        <!-- gráfica -->
+        <div class="cell">
+          <div class="bar h48" style="gap: 6px">
+            <span class="b" style="font-size: 15px">BTCUSD</span>
+            <span class="muted">Bitcoin</span>
+            <span class="b" style="margin-left: 8px">67.245,10</span><span>▲ +1,24 %</span>
+            <span class="sp"></span>
+            <span class="chip">1m</span><span class="chip on">5m</span><span class="chip">15m</span
+            ><span class="chip">1h</span><span class="chip">1d</span>
+            <span class="chip">Velas ▾</span><span class="chip">ƒ Indic.</span
+            ><span class="chip">✎</span><span class="chip">⚙</span><span class="n">4</span>
+          </div>
+          <div class="chart" style="flex: 1; border-bottom: none">
+            <svg data-candles viewBox="0 0 720 450" preserveAspectRatio="none"></svg>
+            <span class="tag" style="top: 110px">67.245,10</span>
+            <div class="posline" style="top: 230px"></div>
+            <span class="poslabel" style="top: 221px">Compra 0,0149 · ▲ +$12,50 · ✕ Cerrar</span>
+            <span class="n abs" style="top: 200px; left: 250px">5</span>
+            <span class="attr">Gráfica: TradingView Lightweight Charts™</span>
+          </div>
+        </div>
+
+        <!-- ticket -->
+        <div class="cell" style="padding: 12px; border-right: none">
+          <div class="tabs" style="margin: -12px -12px 12px">
+            <div class="on">Simple</div>
+            <div>Avanzado</div>
+          </div>
+          <div class="muted small" style="margin-bottom: 4px">
+            ¿Cuánto quieres invertir? <span class="n">6</span>
+          </div>
+          <div class="field">
+            <span class="muted">USD</span><span class="big">1.000</span><span class="sp"></span>
+          </div>
+          <div class="muted small" style="margin: 4px 0 8px">≈ 0,0149 BTC</div>
+          <div style="display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap">
+            <span class="chip">$100</span><span class="chip on">$1.000</span
+            ><span class="chip">$5.000</span><span class="chip">10 %</span
+            ><span class="chip">Máx.</span>
+          </div>
+          <div class="btns">
+            <div class="btn">▼ Vender<span>67.243,80</span></div>
+            <div class="btn fill">▲ Comprar<span>67.246,40</span></div>
+          </div>
+          <div class="kv small" style="margin-top: 12px">
+            <span class="muted">Disponible</span><span>$98.000,00</span>
+          </div>
+          <div class="kv small">
+            <span class="muted">Tu posición en BTCUSD</span><span>0,0149 · ▲ +$12,50</span>
+          </div>
+          <div class="banner">
+            <span class="b">ⓘ ¿Qué es comprar y vender?</span><br />Glosario breve para quien
+            empieza.
+            <span class="n">7</span>
+          </div>
+        </div>
+
+        <!-- posiciones -->
+        <div
+          class="cell"
+          style="grid-column: 1 / -1; border-right: none; border-top: 1px solid var(--ink)"
+        >
+          <div class="tabs" style="max-width: 420px; border-bottom: none">
+            <div class="on">Posiciones (2)</div>
+            <div>Órdenes</div>
+            <div>Historial</div>
+          </div>
+          <table>
+            <tr>
+              <th>Símbolo</th>
+              <th>Lado</th>
+              <th class="num">Cantidad</th>
+              <th class="num">Precio de entrada</th>
+              <th class="num">Precio actual</th>
+              <th class="num">Resultado</th>
+              <th class="num">Abierta</th>
+              <th></th>
+            </tr>
+            <tr>
+              <td class="b">BTCUSD</td>
+              <td>▲ Compra</td>
+              <td class="num">0,0149</td>
+              <td class="num">66.406,00</td>
+              <td class="num">67.243,80</td>
+              <td class="num b">▲ +$12,50</td>
+              <td class="num">10:42</td>
+              <td class="num"><span class="chip">Cerrar</span> <span class="n">8</span></td>
+            </tr>
+            <tr>
+              <td class="b">AAPL</td>
+              <td>▲ Compra</td>
+              <td class="num">4,00</td>
+              <td class="num">231,40</td>
+              <td class="num">229,35</td>
+              <td class="num b">▼ −$8,20</td>
+              <td class="num">10:15</td>
+              <td class="num"><span class="chip">Cerrar</span></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+    <ol class="notes wide">
+      <li>
+        <span class="n">1</span><span>Estado de conexión, junto al logo, igual que en móvil.</span>
+      </li>
+      <li>
+        <span class="n">2</span
+        ><span
+          >Disponible, patrimonio, retorno y puesto en el ranking, tal como los envía el
+          servidor.</span
+        >
+      </li>
+      <li>
+        <span class="n">3</span
+        ><span
+          >Lista de símbolos fija, con búsqueda, filtros y aviso de dato desactualizado (⚠).</span
+        >
+      </li>
+      <li>
+        <span class="n">4</span
+        ><span
+          >Barra de la gráfica: temporalidad, tipo (velas, línea, área), indicadores, dibujo y
+          ajustes de tema y colores.</span
+        >
+      </li>
+      <li>
+        <span class="n">5</span
+        ><span>Línea de posición con resultado y cierre rápido desde la gráfica.</span>
+      </li>
+      <li>
+        <span class="n">6</span
+        ><span
+          >Mismo ticket simple que en móvil. «Avanzado» queda como pestaña vacía hasta que el
+          contrato tenga límite, SL y TP.</span
+        >
+      </li>
+      <li>
+        <span class="n">7</span
+        ><span>Entrada al glosario y, más adelante, al recorrido guiado.</span>
+      </li>
+      <li>
+        <span class="n">8</span
+        ><span
+          >Posiciones, órdenes e historial en un panel inferior. Cerrar pide confirmación.</span
+        >
+      </li>
+    </ol>
+
+    <h2>3. Estados de conexión</h2>
+    <p class="lead">
+      Un solo indicador en la barra superior, con icono y texto. Cuando no se puede operar, además
+      aparece una franja bajo la barra y los botones Comprar/Vender se desactivan con el motivo.
+    </p>
+    <div class="states">
+      <div class="card">
+        <span class="pill">● En vivo</span>
+        <p>Precios llegando. Operación normal.</p>
+      </div>
+      <div class="card">
+        <span class="pill dash">◌ Reconectando…</span>
+        <div class="banner">Sin conexión. Reintentando… Tus posiciones están a salvo.</div>
+        <p>
+          Precios atenuados con la hora del último dato. Botones desactivados. Se recupera sola.
+        </p>
+      </div>
+      <div class="card">
+        <span class="pill solid">☾ Mercado cerrado</span>
+        <div class="banner">El mercado de AAPL está cerrado. Puedes ver la gráfica, no operar.</div>
+        <p>Por símbolo. La gráfica sigue navegable.</p>
+      </div>
+      <div class="card">
+        <span class="pill dash">⚠ Sin datos recientes</span>
+        <div class="banner">NVDA no recibe precios hace 45 s. No se puede operar por ahora.</div>
+        <p>Por símbolo, según el mensaje <code>status</code> del feed. El resto sigue en vivo.</p>
+      </div>
+    </div>
+
+    <script>
+      // Velas de relleno, deterministas, solo para dar forma al boceto.
+      for (const svg of document.querySelectorAll('svg[data-candles]')) {
+        const [, , w, h] = svg.getAttribute('viewBox').split(' ').map(Number);
+        const n = Math.round(w / 12);
+        let seed = 7;
+        const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+        let y = h * 0.62;
+        let out = '';
+        for (let k = 1; k < 4; k++) {
+          out += `<line x1="0" x2="${w}" y1="${(h * k) / 4}" y2="${(h * k) / 4}" stroke="#d5d9e0"/>`;
+        }
+        for (let i = 0; i < n; i++) {
+          const d = (rnd() - 0.44) * h * 0.09;
+          const top = Math.max(12, Math.min(h - 34, y - d));
+          const up = top < y;
+          const a = Math.min(y, top);
+          const b = Math.max(y, top);
+          const x = i * 12 + 6;
+          out += `<line x1="${x}" x2="${x}" y1="${a - rnd() * 8}" y2="${b + rnd() * 8}" stroke="#1b1f26"/>`;
+          out += `<rect x="${x - 3.5}" y="${a}" width="7" height="${Math.max(2, b - a)}" fill="${up ? '#fff' : '#1b1f26'}" stroke="#1b1f26"/>`;
+          y = top;
+        }
+        svg.innerHTML = out;
+      }
+    </script>
+  </body>
+</html>

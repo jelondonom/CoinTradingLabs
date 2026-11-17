@@ -24,7 +24,9 @@ Redis, React con Vite, Vitest, Docker Compose, Caddy y GitHub Actions. Logs en J
 
 - `apps/api/`: API REST, motor de trading y WebSocket de cuenta. Agente Backend.
 - `apps/market-data/`: precios, velas y WebSocket de mercado. Agente Datos de Mercado.
-- `apps/web/`: aplicación React. Agente Frontend.
+- `apps/web/`: aplicación React. Agente Frontend. El detalle de sus carpetas está en
+  `apps/web/README.md`.
+- `docs/web/`: bocetos y notas de interfaz. Agente Frontend.
 - `packages/shared/`: contratos Zod. Agente Arquitecto.
 - `infra/`, `.github/`, `docs/adr/`: Agente Arquitecto.
 - `tests/e2e/`, `tests/load/`: Agente QA.

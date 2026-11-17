@@ -1,0 +1,116 @@
+import { getInstrument } from '@coin/shared';
+import { useId, useState } from 'react';
+import { t } from '../../i18n/index.js';
+import { cx } from '../../lib/cx.js';
+import { formatMoney, formatPrice, formatQuantity } from '../../lib/format.js';
+import { useMarketStore } from '../../stores/market-store.js';
+import { useUiStore } from '../../stores/ui-store.js';
+import { estimateQuantity } from './estimate-quantity.js';
+
+const QUICK_AMOUNTS = [100, 1000, 5000] as const;
+
+/**
+ * Ticket simple: el usuario escribe un monto en dólares. Todavía no envía órdenes: el motor de
+ * trading no expone el endpoint, así que los botones quedan desactivados con el motivo a la vista.
+ */
+export function OrderTicket() {
+  const symbol = useUiStore((state) => state.symbol);
+  const tick = useMarketStore((state) => state.ticks[symbol]);
+  const stale = useMarketStore((state) => state.stale[symbol] === true);
+  const live = useMarketStore((state) => state.connection === 'live');
+  const [amount, setAmount] = useState('1000');
+  const inputId = useId();
+  const reasonId = useId();
+
+  const instrument = getInstrument(symbol);
+  const quantity = estimateQuantity(Number(amount), tick?.ask, instrument.quantityPrecision);
+  const reason = !live
+    ? t('ticket.offline')
+    : stale
+      ? t('ticket.stale', { symbol })
+      : t('ticket.engineOff');
+
+  return (
+    <div className="flex flex-col gap-3 bg-surface p-3">
+      <div>
+        <label htmlFor={inputId} className="mb-1 block text-sm text-muted">
+          {t('ticket.amountLabel')}
+        </label>
+        <div className="flex min-h-12 items-center gap-2 rounded-lg border border-text px-3">
+          <span className="text-sm text-muted">{t('ticket.currency')}</span>
+          <input
+            id={inputId}
+            inputMode="decimal"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value.replace(/[^\d.]/g, ''))}
+            className="min-w-0 flex-1 bg-transparent py-2 text-lg font-bold tabular-nums outline-none"
+          />
+        </div>
+        <p className="mt-1 text-xs text-muted">
+          {quantity === null
+            ? t('ticket.noEstimate')
+            : t('ticket.estimate', {
+                quantity: formatQuantity(quantity, instrument.quantityPrecision),
+                symbol,
+              })}
+        </p>
+      </div>
+
+      <div role="group" aria-label={t('ticket.quickAmounts')} className="flex gap-1.5">
+        {QUICK_AMOUNTS.map((option) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={Number(amount) === option}
+            onClick={() => setAmount(String(option))}
+            className={cx(
+              'min-h-11 flex-1 rounded-md border text-sm tabular-nums lg:min-h-9',
+              Number(amount) === option
+                ? 'border-text bg-text font-semibold text-surface'
+                : 'border-line text-muted',
+            )}
+          >
+            {formatMoney(option).replace(/,00$/, '')}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5">
+        <button
+          type="button"
+          disabled
+          aria-describedby={reasonId}
+          className="flex min-h-14 flex-col items-center justify-center rounded-xl border-2 border-down font-bold text-down disabled:opacity-60"
+        >
+          <span>
+            <span aria-hidden="true">▼ </span>
+            {t('ticket.sell')}
+          </span>
+          <span className="text-xs font-normal tabular-nums">
+            {formatPrice(tick?.bid, instrument.pricePrecision)}
+          </span>
+        </button>
+        <button
+          type="button"
+          disabled
+          aria-describedby={reasonId}
+          className="flex min-h-14 flex-col items-center justify-center rounded-xl border-2 border-up bg-up font-bold text-surface disabled:opacity-60"
+        >
+          <span>
+            <span aria-hidden="true">▲ </span>
+            {t('ticket.buy')}
+          </span>
+          <span className="text-xs font-normal tabular-nums">
+            {formatPrice(tick?.ask, instrument.pricePrecision)}
+          </span>
+        </button>
+      </div>
+
+      <p id={reasonId} className="rounded-md bg-raised px-2.5 py-2 text-xs">
+        <span aria-hidden="true">ⓘ </span>
+        {reason}
+      </p>
+      <p className="text-xs text-muted">{t('ticket.simulated')}</p>
+    </div>
+  );
+}
