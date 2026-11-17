@@ -15,7 +15,10 @@ const envSchema = z.object({
   BINANCE_SPOT_WS_URL: webSocketUrl.default('wss://stream.binance.com:9443'),
   BINANCE_FUTURES_WS_URL: webSocketUrl.default('wss://fstream.binance.com'),
   MAX_TICKS_PER_SECOND: z.coerce.number().int().min(1).max(20).default(4),
+  REDIS_URL: z.url().optional(),
 });
+
+const DEV_REDIS_URL = 'redis://localhost:6379';
 
 export type FeedKind = 'mock' | 'live';
 
@@ -33,6 +36,8 @@ export type Env = {
   binanceFuturesWsUrl: string;
   /** Máximo de ticks por segundo y símbolo que se envían a los clientes. */
   maxTicksPerSecond: number;
+  /** Redis donde se publica el último precio para el motor de trading. */
+  redisUrl: string;
 };
 
 /** Valida las variables de entorno al arrancar. Lanza un error legible si algo falta. */
@@ -53,6 +58,9 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
         'Gerente, define ALLOW_MOCK_FEED_IN_PRODUCTION=true.',
     );
   }
+  if (env.NODE_ENV === 'production' && !env.REDIS_URL) {
+    throw new Error('Variables de entorno inválidas:\nEn producción REDIS_URL es obligatoria.');
+  }
   return {
     nodeEnv: env.NODE_ENV,
     logLevel: env.LOG_LEVEL,
@@ -64,5 +72,6 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
     binanceSpotWsUrl: env.BINANCE_SPOT_WS_URL,
     binanceFuturesWsUrl: env.BINANCE_FUTURES_WS_URL,
     maxTicksPerSecond: env.MAX_TICKS_PER_SECOND,
+    redisUrl: env.REDIS_URL ?? DEV_REDIS_URL,
   };
 }

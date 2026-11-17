@@ -14,11 +14,12 @@ describe('normalizeBookTicker', () => {
     });
   });
 
-  it('convierte mensajes reales de futuros y usa la hora del evento', () => {
+  it('en futuros ignora la hora del evento de Binance y usa la de recepción', () => {
+    expect(FUTURES_MESSAGES[0]).toContain('"E":1794847981009');
     const result = normalizeBookTicker('futures', FUTURES_MESSAGES[0], RECEIVED_AT);
     expect(result).toMatchObject({
       ok: true,
-      tick: { symbol: 'XAUUSD', bid: 3863.01, ask: 3863.02, ts: 1_794_847_981_009 },
+      tick: { symbol: 'XAUUSD', bid: 3863.01, ask: 3863.02, ts: RECEIVED_AT },
     });
   });
 
