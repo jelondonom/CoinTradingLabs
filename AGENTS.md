@@ -23,6 +23,12 @@ Redis, React con Vite, Vitest, Docker Compose, Caddy y GitHub Actions. Logs en J
 ## Estructura y responsables
 
 - `apps/api/`: API REST, motor de trading y WebSocket de cuenta. Agente Backend.
+  - `apps/api/src/engine/`: motor puro (ejecución, P&L, saldo, equity).
+  - `apps/api/src/modules/`: auth, accounts, orders, positions y leaderboard.
+  - `apps/api/src/ws/`: WebSocket privado de cuenta.
+  - `apps/api/src/errors/`: errores de negocio con código estable.
+  - `apps/api/prisma/`: esquema, migraciones y seed.
+  - `docs/engine-rules.md`: reglas del motor de trading.
 - `apps/market-data/`: precios, velas y WebSocket de mercado. Agente Datos de Mercado.
 - `apps/web/`: aplicación React. Agente Frontend.
 - `packages/shared/`: contratos Zod. Agente Arquitecto.

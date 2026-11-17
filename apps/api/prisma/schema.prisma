@@ -1,6 +1,13 @@
-// Esquema de base de datos de COIN Trading Labs.
-// Los modelos (cuentas, órdenes, posiciones) los define el Agente Backend Motor de Trading
-// a partir de los contratos de `packages/shared`.
+// Esquema de base de datos de COIN Trading Labs. V0.
+// Responsable: Agente Backend Motor de Trading. Reglas del motor: `docs/engine-rules.md`.
+//
+// Convenciones:
+// - Tablas y columnas en snake_case (`@map`, `@@map`); el código usa camelCase.
+// - Dinero en NUMERIC(20,2), precios en NUMERIC(20,8), cantidades en NUMERIC(28,8). Nunca float.
+// - Todas las fechas en UTC (`timestamptz`).
+// - `ledger_entries` y `audit_log` son solo de inserción. La migración inicial agrega los
+//   triggers que bloquean UPDATE y DELETE, y el índice único parcial de una posición abierta
+//   por cuenta y símbolo (Prisma no los expresa en este archivo).
 
 generator client {
   provider = "prisma-client"
@@ -9,4 +16,303 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum AssetClass {
+  crypto
+  stock
+  forex
+  commodity
+
+  @@map("asset_class")
+}
+
+enum OrderSide {
+  buy
+  sell
+
+  @@map("order_side")
+}
+
+/// V0: solo `market`. Limit y stop llegan con una versión nueva del contrato.
+enum OrderType {
+  market
+
+  @@map("order_type")
+}
+
+enum OrderStatus {
+  pending
+  filled
+  rejected
+
+  @@map("order_status")
+}
+
+/// Mismos códigos que `orderRejectReasonSchema` de `@coin/shared`, más `stale_price`
+/// (pendiente de agregar al contrato; ver `docs/engine-rules.md`).
+enum OrderRejectReason {
+  insufficient_funds
+  insufficient_position
+  invalid_quantity
+  no_price
+  market_closed
+  stale_price
+
+  @@map("order_reject_reason")
+}
+
+/// V0 solo abre posiciones `long`. `short` existe porque el contrato lo admite.
+enum PositionSide {
+  long
+  short
+
+  @@map("position_side")
+}
+
+enum LedgerEntryType {
+  /// Saldo inicial de la cuenta.
+  initial_deposit
+  /// Costo de una compra (monto negativo).
+  trade_buy
+  /// Producto de una venta (monto positivo).
+  trade_sell
+
+  @@map("ledger_entry_type")
+}
+
+/// Cortes del ranking del Challenge.
+enum LeaderboardCutoff {
+  two_day
+  thirty_day
+
+  @@map("leaderboard_cutoff")
+}
+
+/// Asistente del evento. El método de ingreso (código de inscripción, correo institucional u
+/// otro) está pendiente de decisión del Gerente: `loginId` guarda el identificador que se elija.
+model User {
+  id             String   @id @default(uuid()) @db.Uuid
+  loginId        String   @unique @map("login_id")
+  displayName    String   @map("display_name")
+  /// Hash de la credencial, si el método de ingreso usa una. Nunca texto plano.
+  credentialHash String?  @map("credential_hash")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account Account?
+
+  @@map("users")
+}
+
+model Competition {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  /// Fuera de [startsAt, endsAt) las órdenes se rechazan con `market_closed`.
+  startsAt       DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt         DateTime @map("ends_at") @db.Timestamptz(3)
+  /// V0: 100.000 USD.
+  initialBalance Decimal  @map("initial_balance") @db.Decimal(20, 2)
+  /// V0: 1 (sin margen ni stop-out).
+  leverage       Int      @default(1)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  accounts  Account[]
+  snapshots LeaderboardSnapshot[]
+
+  @@map("competitions")
+}
+
+/// Una cuenta demo por asistente.
+model Account {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @unique @map("user_id") @db.Uuid
+  competitionId  String   @map("competition_id") @db.Uuid
+  currency       String   @default("USD") @db.Char(3)
+  initialBalance Decimal  @map("initial_balance") @db.Decimal(20, 2)
+  /// Efectivo disponible. Es una copia: la verdad es la suma de `ledger_entries.amount`.
+  /// Se actualiza en la misma transacción que inserta el asiento.
+  balance        Decimal  @db.Decimal(20, 2)
+  leverage       Int      @default(1)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user          User                  @relation(fields: [userId], references: [id])
+  competition   Competition           @relation(fields: [competitionId], references: [id])
+  orders        Order[]
+  positions     Position[]
+  fills         Fill[]
+  ledgerEntries LedgerEntry[]
+  snapshots     LeaderboardSnapshot[]
+  auditLogs     AuditLog[]
+
+  @@index([competitionId])
+  @@map("accounts")
+}
+
+/// Catálogo cerrado. Se carga en el seed desde `INSTRUMENTS` de `@coin/shared`.
+model Instrument {
+  symbol            String     @id
+  name              String
+  assetClass        AssetClass @map("asset_class")
+  quoteCurrency     String     @default("USD") @map("quote_currency") @db.Char(3)
+  pricePrecision    Int        @map("price_precision")
+  quantityPrecision Int        @map("quantity_precision")
+  minQuantity       Decimal    @map("min_quantity") @db.Decimal(28, 8)
+  /// `false` deshabilita el instrumento: sus órdenes se rechazan con `market_closed`.
+  tradable          Boolean    @default(true)
+
+  orders    Order[]
+  positions Position[]
+  fills     Fill[]
+
+  @@map("instruments")
+}
+
+model Order {
+  id            String             @id @default(uuid()) @db.Uuid
+  accountId     String             @map("account_id") @db.Uuid
+  /// Idempotencia: un reintento con el mismo valor devuelve la orden original.
+  /// Es opcional mientras lo sea en el contrato; se pide al Arquitecto volverlo obligatorio.
+  clientOrderId String?            @map("client_order_id") @db.Uuid
+  symbol        String
+  side          OrderSide
+  type          OrderType          @default(market)
+  quantity      Decimal            @db.Decimal(28, 8)
+  status        OrderStatus        @default(pending)
+  rejectReason  OrderRejectReason? @map("reject_reason")
+  filledPrice   Decimal?           @map("filled_price") @db.Decimal(20, 8)
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  filledAt      DateTime?          @map("filled_at") @db.Timestamptz(3)
+
+  account    Account    @relation(fields: [accountId], references: [id])
+  instrument Instrument @relation(fields: [symbol], references: [symbol])
+  fill       Fill?
+
+  @@unique([accountId, clientOrderId])
+  @@index([accountId, createdAt])
+  @@map("orders")
+}
+
+/// Posición neta por cuenta y símbolo. Al cerrarse no se borra: se marca con `closedAt`.
+model Position {
+  id            String       @id @default(uuid()) @db.Uuid
+  accountId     String       @map("account_id") @db.Uuid
+  symbol        String
+  side          PositionSide @default(long)
+  /// Cantidad abierta. Cero cuando la posición está cerrada.
+  quantity      Decimal      @db.Decimal(28, 8)
+  /// Dinero pagado por la cantidad abierta. Base exacta del P&L (ver reglas del motor).
+  costBasis     Decimal      @map("cost_basis") @db.Decimal(20, 2)
+  /// `costBasis / quantity`. Solo informativo; conserva el último valor al cerrar.
+  avgEntryPrice Decimal      @map("avg_entry_price") @db.Decimal(20, 8)
+  /// P&L realizado acumulado de esta posición.
+  realizedPnl   Decimal      @default(0) @map("realized_pnl") @db.Decimal(20, 2)
+  openedAt      DateTime     @default(now()) @map("opened_at") @db.Timestamptz(3)
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  closedAt      DateTime?    @map("closed_at") @db.Timestamptz(3)
+
+  account    Account    @relation(fields: [accountId], references: [id])
+  instrument Instrument @relation(fields: [symbol], references: [symbol])
+  fills      Fill[]
+
+  @@index([accountId, closedAt])
+  @@index([accountId, symbol])
+  @@map("positions")
+}
+
+/// Ejecución de una orden. Una orden market se ejecuta completa: un fill por orden.
+/// Guarda el tick usado para que la ejecución sea auditable.
+model Fill {
+  id          String    @id @default(uuid()) @db.Uuid
+  orderId     String    @unique @map("order_id") @db.Uuid
+  accountId   String    @map("account_id") @db.Uuid
+  positionId  String    @map("position_id") @db.Uuid
+  symbol      String
+  side        OrderSide
+  quantity    Decimal   @db.Decimal(28, 8)
+  /// Precio de ejecución: `ask` en compras, `bid` en ventas.
+  price       Decimal   @db.Decimal(20, 8)
+  /// `quantity × price` redondeado a centavos. Es el monto que mueve el libro contable.
+  notional    Decimal   @db.Decimal(20, 2)
+  /// P&L realizado por este fill. Cero en las compras.
+  realizedPnl Decimal   @default(0) @map("realized_pnl") @db.Decimal(20, 2)
+  tickBid     Decimal   @map("tick_bid") @db.Decimal(20, 8)
+  tickAsk     Decimal   @map("tick_ask") @db.Decimal(20, 8)
+  tickTs      DateTime  @map("tick_ts") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  order       Order        @relation(fields: [orderId], references: [id])
+  account     Account      @relation(fields: [accountId], references: [id])
+  position    Position     @relation(fields: [positionId], references: [id])
+  instrument  Instrument   @relation(fields: [symbol], references: [symbol])
+  ledgerEntry LedgerEntry?
+
+  @@index([accountId, createdAt])
+  @@index([positionId])
+  @@map("fills")
+}
+
+/// Libro contable. SOLO INSERCIÓN: nunca UPDATE ni DELETE.
+/// El saldo de una cuenta es la suma de `amount` de sus asientos.
+model LedgerEntry {
+  /// Secuencial: define el orden de los asientos.
+  id           BigInt          @id @default(autoincrement())
+  accountId    String          @map("account_id") @db.Uuid
+  type         LedgerEntryType
+  /// Con signo: negativo resta efectivo, positivo suma.
+  amount       Decimal         @db.Decimal(20, 2)
+  /// Saldo de la cuenta después de este asiento.
+  balanceAfter Decimal         @map("balance_after") @db.Decimal(20, 2)
+  /// Fill que originó el asiento. Nulo en `initial_deposit`.
+  fillId       String?         @unique @map("fill_id") @db.Uuid
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id])
+  fill    Fill?   @relation(fields: [fillId], references: [id])
+
+  @@index([accountId, id])
+  @@map("ledger_entries")
+}
+
+/// Foto del ranking en un corte. Se calcula de forma periódica, nunca en cada petición.
+model LeaderboardSnapshot {
+  id            String            @id @default(uuid()) @db.Uuid
+  competitionId String            @map("competition_id") @db.Uuid
+  cutoff        LeaderboardCutoff
+  takenAt       DateTime          @map("taken_at") @db.Timestamptz(3)
+  accountId     String            @map("account_id") @db.Uuid
+  rank          Int
+  equity        Decimal           @db.Decimal(20, 2)
+  /// `(equity − initialBalance) / initialBalance`, como fracción (0.05 = 5 %).
+  returnPct     Decimal           @map("return_pct") @db.Decimal(12, 6)
+
+  competition Competition @relation(fields: [competitionId], references: [id])
+  account     Account     @relation(fields: [accountId], references: [id])
+
+  @@unique([competitionId, cutoff, takenAt, accountId])
+  @@index([competitionId, cutoff, takenAt, rank])
+  @@map("leaderboard_snapshots")
+}
+
+/// Registro de auditoría. SOLO INSERCIÓN: nunca UPDATE ni DELETE.
+/// Una fila por cada acción que cambia dinero.
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  /// Cuenta afectada, si aplica.
+  accountId  String?  @map("account_id") @db.Uuid
+  /// Quién originó la acción: id del usuario o `system`.
+  actor      String
+  /// Por ejemplo `account.created`, `order.filled`, `order.rejected`.
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  /// Datos de la acción (entradas y resultado), para reconstruirla.
+  payload    Json
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account Account? @relation(fields: [accountId], references: [id])
+
+  @@index([accountId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_log")
 }
