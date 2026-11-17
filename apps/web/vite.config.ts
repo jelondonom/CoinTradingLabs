@@ -1,10 +1,11 @@
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 // En desarrollo Vite hace de proxy, igual que Caddy en staging y producción:
 // el navegador siempre habla con un solo origen.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
     strictPort: true,

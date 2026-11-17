@@ -45,6 +45,7 @@ No hace falta un archivo `.env` en desarrollo. Para cambiar un valor, copia `.en
 - `apps/api/`: API REST, motor de trading y WebSocket privado de cuenta.
 - `apps/market-data/`: ingesta de precios, velas y WebSocket público de mercado.
 - `apps/web/`: aplicación React.
+- `docs/web/`: bocetos y notas de interfaz.
 - `packages/shared/`: tipos, esquemas Zod y contratos entre módulos.
 - `infra/`: Compose y, más adelante, Caddy y los scripts de despliegue y respaldo.
 - `docs/adr/`: decisiones de arquitectura.
