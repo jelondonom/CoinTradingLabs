@@ -1,6 +1,7 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+  - 'tests'
 
 # Únicas dependencias autorizadas a ejecutar scripts de instalación.
 allowBuilds:

@@ -36,7 +36,8 @@ Frontend: Lightweight Charts, Zustand y Tailwind CSS (ver `docs/adr/0003-libreri
 - `docs/web/`: bocetos y notas de interfaz. Agente Frontend.
 - `packages/shared/`: contratos Zod. Agente Arquitecto.
 - `infra/`, `.github/`, `docs/adr/`: Agente Arquitecto.
-- `tests/e2e/`, `tests/load/`: Agente QA.
+- `tests/` (`properties/`, `load/`, `e2e/`, `security/`, `audit/`) y `docs/qa/`: Agente QA +
+  Seguridad. Paquete `@coin/qa`. Ver `tests/README.md`.
 
 ## Convenciones
 
