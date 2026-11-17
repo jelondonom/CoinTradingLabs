@@ -89,13 +89,13 @@ enum LeaderboardCutoff {
   @@map("leaderboard_cutoff")
 }
 
-/// Asistente del evento. El método de ingreso (código de inscripción, correo institucional u
-/// otro) está pendiente de decisión del Gerente: `loginId` guarda el identificador que se elija.
+/// Asistente del evento. Ingresa con un código de inscripción, sin contraseña.
+/// `loginId` guarda el SHA-256 del código, nunca el código: el código es la credencial.
 model User {
   id             String   @id @default(uuid()) @db.Uuid
   loginId        String   @unique @map("login_id")
   displayName    String   @map("display_name")
-  /// Hash de la credencial, si el método de ingreso usa una. Nunca texto plano.
+  /// Reservado para un método de ingreso con contraseña. Sin uso en V0.
   credentialHash String?  @map("credential_hash")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
