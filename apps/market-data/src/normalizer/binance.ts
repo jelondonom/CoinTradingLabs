@@ -4,14 +4,13 @@ import { toInternalSymbol, type BinanceMarket } from './symbol-map.js';
 
 const decimalString = z.string().regex(/^\d+(\.\d+)?$/);
 
-/** Mensaje `bookTicker` dentro de un stream combinado. Futuros trae además la hora del evento `E`. */
+/** Mensaje `bookTicker` dentro de un stream combinado. */
 const bookTickerMessageSchema = z.object({
   stream: z.string(),
   data: z.object({
     s: z.string().min(1),
     b: decimalString,
     a: decimalString,
-    E: z.number().int().positive().optional(),
   }),
 });
 
@@ -26,8 +25,9 @@ function roundTo(value: number, decimals: number): number {
 
 /**
  * Convierte un mensaje crudo de Binance al tick común. Nunca lanza: lo que no cumple se rechaza.
- * `last` es el punto medio entre bid y ask. `ts` es la hora del evento si Binance la envía
- * (futuros) o la hora de recepción (spot no la trae).
+ * `last` es el punto medio entre bid y ask. `ts` es siempre la hora de recepción en este
+ * servicio, nunca la del proveedor: así un desfase de reloj con Binance no hace que el motor
+ * tome por viejo un precio vigente.
  */
 export function normalizeBookTicker(
   market: BinanceMarket,
@@ -43,7 +43,7 @@ export function normalizeBookTicker(
   const parsed = bookTickerMessageSchema.safeParse(json);
   if (!parsed.success) return { ok: false, reason: 'invalid_shape' };
 
-  const { s, b, a, E } = parsed.data.data;
+  const { s, b, a } = parsed.data.data;
   const symbol = toInternalSymbol(market, s);
   if (!symbol) return { ok: false, reason: 'unknown_symbol' };
 
@@ -55,5 +55,5 @@ export function normalizeBookTicker(
   }
   const last = Math.min(Math.max(roundTo((bid + ask) / 2, pricePrecision), bid), ask);
 
-  return { ok: true, tick: { symbol, bid, ask, last, ts: E ?? receivedAt } };
+  return { ok: true, tick: { symbol, bid, ask, last, ts: receivedAt } };
 }

@@ -127,7 +127,7 @@ describe('BinanceFeedAdapter', () => {
       'AAPL',
     ]);
     expect(ticks[0]).toMatchObject({ bid: 64651.84, ask: 64651.85, ts: 1_794_847_990_000 });
-    expect(ticks[3]).toMatchObject({ bid: 3863.01, ask: 3863.02, ts: 1_794_847_981_009 });
+    expect(ticks[3]).toMatchObject({ bid: 3863.01, ask: 3863.02, ts: 1_794_847_990_000 });
     await feed.stop();
   });
 

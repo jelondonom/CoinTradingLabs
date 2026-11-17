@@ -29,7 +29,13 @@ export type MarketDataApp = {
   clientCount: () => number;
 };
 
-export async function buildApp(options: { logLevel?: string } = {}): Promise<MarketDataApp> {
+export type MarketDataAppOptions = {
+  logLevel?: string;
+  /** Chequeos extra para `/health`. Si alguno falla, el servicio se reporta `degraded`. */
+  checks?: Record<string, () => Promise<boolean>>;
+};
+
+export async function buildApp(options: MarketDataAppOptions = {}): Promise<MarketDataApp> {
   const startedAt = Date.now();
   const statuses = new Map<InstrumentSymbol, SymbolStatus>();
   /** Sin estado publicado todavía no hay precio: el símbolo se informa como desactualizado. */
@@ -45,11 +51,20 @@ export async function buildApp(options: { logLevel?: string } = {}): Promise<Mar
   await server.register(websocket);
 
   server.get('/health', async () => {
+    const checks: HealthResponse['checks'] = {
+      feed: lastTickAt > 0 && Date.now() - lastTickAt < 10_000 ? 'up' : 'down',
+    };
+    let degraded = false;
+    for (const [name, check] of Object.entries(options.checks ?? {})) {
+      const up = await check().catch(() => false);
+      checks[name] = up ? 'up' : 'down';
+      if (!up) degraded = true;
+    }
     const body: HealthResponse = {
-      status: 'ok',
+      status: degraded ? 'degraded' : 'ok',
       service: 'market-data',
       uptimeSeconds: Math.round(process.uptime()),
-      checks: { feed: lastTickAt > 0 && Date.now() - lastTickAt < 10_000 ? 'up' : 'down' },
+      checks,
     };
     return body;
   });

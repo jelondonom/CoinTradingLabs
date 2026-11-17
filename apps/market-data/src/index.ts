@@ -1,15 +1,34 @@
+import { Redis } from 'ioredis';
 import { buildApp } from './app.js';
 import { createFeed } from './adapters/create-feed.js';
 import { loadEnv } from './env.js';
+import { RedisTickPublisher } from './gateway/redis-tick-publisher.js';
 import { StaleTracker } from './gateway/stale-tracker.js';
 import { TickConflator } from './gateway/tick-conflator.js';
 
 const env = loadEnv();
-const app = await buildApp({ logLevel: env.logLevel });
+const redis = new Redis(env.redisUrl, {
+  // Sin cola: si Redis está caído, la escritura falla de inmediato en vez de acumularse.
+  enableOfflineQueue: false,
+  maxRetriesPerRequest: 1,
+  retryStrategy: (attempt) => Math.min(attempt * 500, 5000),
+});
+const app = await buildApp({
+  logLevel: env.logLevel,
+  checks: { redis: async () => (await redis.ping()) === 'PONG' },
+});
 const log = app.server.log;
-const conflator = new TickConflator(Math.round(1000 / env.maxTicksPerSecond), (tick) =>
-  app.publishTick(tick),
-);
+// Sin este manejador, un corte de conexión tumbaría el proceso.
+redis.on('error', (error) => log.debug({ err: error }, 'error de conexión con Redis'));
+const redisPublisher = new RedisTickPublisher(redis, {
+  onFailure: (error) =>
+    log.error({ err: error }, 'Redis no acepta precios: el motor no puede ejecutar órdenes'),
+  onRecovery: () => log.info('Redis vuelve a aceptar precios'),
+});
+const conflator = new TickConflator(Math.round(1000 / env.maxTicksPerSecond), (tick) => {
+  app.publishTick(tick);
+  void redisPublisher.publish(tick);
+});
 const staleTracker = new StaleTracker({
   onChange: (status) => {
     app.publishStatus(status);
@@ -27,6 +46,7 @@ async function shutdown(signal: string): Promise<void> {
   conflator.stop();
   staleTracker.stop();
   await app.server.close();
+  redis.disconnect();
   process.exit(0);
 }
 process.on('SIGINT', () => void shutdown('SIGINT'));
