@@ -10,7 +10,8 @@
 | DEF-001 | Alta      | Motor  | Abierto | El redondeo a centavos por orden crea dinero         |
 | DEF-002 | Media     | Motor  | Abierto | Un tick con fecha futura nunca se considera obsoleto |
 
-Probado el 2026-11-16 sobre la rama `feat/api-engine-v0` (commit `9dc48f8`).
+Probado el 2026-11-16 sobre la rama `feat/api-engine-v0` (commit `9dc48f8`). Vuelto a probar el
+mismo día sobre `main` (commit `ed77101`), ya con el motor integrado: los dos siguen abiertos.
 
 ## DEF-001: el redondeo a centavos por orden crea dinero
 
