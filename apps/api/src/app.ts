@@ -7,6 +7,9 @@ import {
 } from '@coin/shared';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { AppError } from './errors/app-error.js';
+import type { TradingDeps } from './modules/deps.js';
+import { registerTradingRoutes } from './modules/routes.js';
 
 /** Devuelve `true` si la dependencia responde. */
 export type HealthCheck = () => Promise<boolean>;
@@ -16,6 +19,8 @@ export type AppOptions = {
   checks: Record<string, HealthCheck>;
   /** Tiempo máximo por chequeo de salud. */
   checkTimeoutMs?: number;
+  /** Dependencias de trading. Sin ellas solo se sirven `/health` y el WebSocket. */
+  trading?: TradingDeps;
 };
 
 async function runCheck(check: HealthCheck, timeoutMs: number): Promise<'up' | 'down'> {
@@ -39,6 +44,25 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   });
 
   await app.register(websocket);
+
+  app.setErrorHandler((error, request, reply) => {
+    if (error instanceof AppError) {
+      return reply
+        .code(error.statusCode)
+        .send({ error: { code: error.code, message: error.message } });
+    }
+    const statusCode = (error as { statusCode?: number }).statusCode;
+    // Errores del propio Fastify por una petición mal formada (JSON inválido, cuerpo enorme).
+    if (statusCode && statusCode >= 400 && statusCode < 500) {
+      return reply
+        .code(statusCode)
+        .send({ error: { code: 'invalid_request', message: 'Petición inválida.' } });
+    }
+    request.log.error({ err: error }, 'error no controlado');
+    return reply.code(500).send({ error: { code: 'internal', message: 'Error interno.' } });
+  });
+
+  if (options.trading) registerTradingRoutes(app, options.trading);
 
   app.get('/health', async (_request, reply) => {
     const entries = await Promise.all(

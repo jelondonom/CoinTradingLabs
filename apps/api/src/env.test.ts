@@ -15,11 +15,21 @@ describe('loadEnv', () => {
 
   it('exige DATABASE_URL y REDIS_URL en producción', () => {
     expect(() => loadEnv({ NODE_ENV: 'production' })).toThrow(/obligatorias/);
-    const env = loadEnv({
+    const production = {
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://u:p@db:5432/coin',
       REDIS_URL: 'redis://redis:6379',
-    });
+    };
+    expect(() => loadEnv(production)).toThrow(/AUTH_TOKEN_SECRET/);
+    const env = loadEnv({ ...production, AUTH_TOKEN_SECRET: 'x'.repeat(32) });
     expect(env.databaseUrl).toBe('postgresql://u:p@db:5432/coin');
+    expect(env.authTokenSecret).toBe('x'.repeat(32));
+  });
+
+  it('rechaza un secreto corto y usa 7 días de sesión y 30 s de umbral por defecto', () => {
+    expect(() => loadEnv({ AUTH_TOKEN_SECRET: 'corto' })).toThrow(/AUTH_TOKEN_SECRET/);
+    const env = loadEnv({});
+    expect(env.authTokenTtlMs).toBe(7 * 24 * 60 * 60 * 1000);
+    expect(env.stalePriceAfterMs).toBe(30_000);
   });
 });

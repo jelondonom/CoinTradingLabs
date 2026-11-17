@@ -1,7 +1,10 @@
 import { Redis } from 'ioredis';
 import pg from 'pg';
 import { buildApp } from './app.js';
+import { createDb } from './db/prisma.js';
 import { loadEnv } from './env.js';
+import { AccountQueue } from './modules/orders/account-queue.js';
+import { RedisTickSource } from './modules/orders/tick-source.js';
 
 const env = loadEnv();
 
@@ -17,8 +20,19 @@ const redis = new Redis(env.redisUrl, {
   retryStrategy: (attempt) => Math.min(attempt * 500, 5000),
 });
 
+const db = createDb(env.databaseUrl);
+
 const app = await buildApp({
   logLevel: env.logLevel,
+  trading: {
+    db,
+    ticks: new RedisTickSource(redis),
+    queue: new AccountQueue(),
+    now: () => Date.now(),
+    staleAfterMs: env.stalePriceAfterMs,
+    tokenSecret: env.authTokenSecret,
+    tokenTtlMs: env.authTokenTtlMs,
+  },
   checks: {
     postgres: async () => {
       await pool.query('SELECT 1');
@@ -39,6 +53,7 @@ async function shutdown(signal: string): Promise<void> {
   app.log.info({ signal }, 'cerrando api');
   await app.close();
   redis.disconnect();
+  await db.$disconnect();
   await pool.end();
   process.exit(0);
 }

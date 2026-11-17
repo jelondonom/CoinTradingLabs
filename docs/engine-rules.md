@@ -113,7 +113,8 @@ la suma del P&L realizado y no realizado siempre es igual a `equity − saldo in
 - **Equity**: `saldo + suma del valor de mercado de las posiciones abiertas`.
 - **Retorno** (ranking): `(equity − saldo inicial) / saldo inicial`.
 
-Si un símbolo no tiene tick reciente, su posición se valora con el último tick conocido.
+Si un símbolo no tiene tick reciente, su posición se valora con el último tick conocido. Si no
+tiene ningún tick, se valora a su precio promedio de entrada (P&L no realizado cero).
 
 ## 8. Ejemplo completo
 
@@ -174,10 +175,35 @@ archivos.
 | 5   | Confirmar que una posición larga se valora al `bid`. El comentario de `tickSchema` dice que `last` valora    | Frontend         |
 | 6   | Confirmar `quantityPrecision` del catálogo: el motor acepta los valores actuales de `INSTRUMENTS` sin cambio | Datos de Mercado |
 
-Hasta que la solicitud 1 esté en el contrato, la base de datos ya admite `stale_price`, pero la
-API no puede devolverlo sin romper el contrato. Es requisito para `POST /orders`.
+| 7 | Mover al contrato el login (`POST /auth/login`), la respuesta de `GET /account` y el formato de error | Frontend, QA |
+| 8 | Agregar Postgres al CI para que corran los tests de integración de la API | QA |
 
-## 11. Fuera de V0
+Hasta que la solicitud 1 esté en el contrato, la base de datos guarda `stale_price` y la API
+responde `no_price` de forma temporal (aprobado por el Gerente el 2026-11-16). La conversión está
+en un solo lugar: `toPublicRejectReason`, en `apps/api/src/modules/dto.ts`.
+
+## 11. API REST V0
+
+Todas las respuestas de error tienen la forma `{ "error": { "code", "message" } }`, con los
+códigos `invalid_request` (400), `unauthorized` (401), `not_found` (404) e `internal` (500).
+
+| Ruta               | Sesión | Qué hace                                                             |
+| ------------------ | ------ | -------------------------------------------------------------------- |
+| `POST /auth/login` | No     | Recibe `{ code }` y devuelve `{ token, expiresAt, accountId }`       |
+| `POST /orders`     | Sí     | Recibe `placeOrderRequestSchema` y devuelve la orden (`orderSchema`) |
+| `GET /account`     | Sí     | Devuelve `{ account, positions }` con las posiciones abiertas        |
+
+- **Ingreso**: un código de inscripción por asistente, sin contraseña (aprobado por
+  el Gerente el 2026-11-16). El código no distingue mayúsculas, espacios ni guiones. La base
+  guarda solo su SHA-256.
+- **Sesión**: cabecera `Authorization: Bearer <token>`. El token dura 7 días por defecto
+  (`AUTH_TOKEN_TTL_HOURS`) y se firma con `AUTH_TOKEN_SECRET`.
+- **`POST /orders`** responde 201 con la orden, ejecutada o rechazada. Una orden rechazada no es
+  un error HTTP: llega con `status = rejected` y su `rejectReason`. Si el `clientOrderId` ya se
+  usó, responde 200 con la orden original.
+- Un campo que el cliente no debe enviar (por ejemplo `price`) se ignora.
+
+## 12. Fuera de V0
 
 Órdenes limit y stop, stop loss y take profit, cortos, margen, stop-out, comisiones y horarios de
 mercado por activo. Cada uno requiere una versión nueva del contrato y de este documento.
