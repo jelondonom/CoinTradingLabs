@@ -48,6 +48,9 @@ No hace falta un archivo `.env` en desarrollo. Para cambiar un valor, copia `.en
 - `packages/shared/`: tipos, esquemas Zod y contratos entre módulos.
 - `infra/`: Compose y, más adelante, Caddy y los scripts de despliegue y respaldo.
 - `docs/adr/`: decisiones de arquitectura.
+- `tests/`: pruebas del Agente QA + Seguridad (propiedades, carga, flujo completo, seguridad y
+  auditoría). Paquete `@coin/qa`.
+- `docs/qa/`: plan de pruebas, defectos y reglamento anti-trampa. Agente QA + Seguridad.
 
 ## Estado V0
 

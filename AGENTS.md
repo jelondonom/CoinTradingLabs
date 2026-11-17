@@ -33,7 +33,8 @@ Redis, React con Vite, Vitest, Docker Compose, Caddy y GitHub Actions. Logs en J
 - `apps/web/`: aplicación React. Agente Frontend.
 - `packages/shared/`: contratos Zod. Agente Arquitecto.
 - `infra/`, `.github/`, `docs/adr/`: Agente Arquitecto.
-- `tests/e2e/`, `tests/load/`: Agente QA.
+- `tests/` (`properties/`, `load/`, `e2e/`, `security/`, `audit/`) y `docs/qa/`: Agente QA +
+  Seguridad. Paquete `@coin/qa`. Ver `tests/README.md`.
 
 ## Convenciones
 
