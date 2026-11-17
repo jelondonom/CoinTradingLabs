@@ -12,6 +12,7 @@ cuentas y entre 400 y 450 usuarios operando al mismo tiempo. Un solo servidor.
 
 TypeScript 5 en modo `strict`, Node.js 24, pnpm workspaces, Fastify, PostgreSQL 17 con Prisma,
 Redis, React con Vite, Vitest, Docker Compose, Caddy y GitHub Actions. Logs en JSON con pino.
+Frontend: Lightweight Charts, Zustand y Tailwind CSS (ver `docs/adr/0003-librerias-frontend.md`).
 
 ## Comandos
 
@@ -45,6 +46,19 @@ Redis, React con Vite, Vitest, Docker Compose, Caddy y GitHub Actions. Logs en J
 - Toda variable de entorno se declara en `.env.example` y se valida con Zod al arrancar.
 - Los imports entre archivos TypeScript llevan extensión `.js` (módulos ES).
 - Un ADR por decisión estructural en `docs/adr/`, de máximo una página.
+
+## Ramas y trabajo en paralelo
+
+- Una rama por agente y por tarea. Dos agentes nunca escriben en la misma rama.
+- Una carpeta local tiene una sola rama activa. Antes de empezar una tarea, confirma con
+  `git status -sb` en qué rama está la carpeta. No cambies la rama de una carpeta que usa otro
+  agente.
+- Para trabajar sin tocar la carpeta de otro, usa una carpeta propia con
+  `git worktree add ../ctl-<agente> <rama>` y bórrala al terminar con `git worktree remove`.
+- Si `main` avanzó mientras trabajabas, trae `main` a tu rama antes de abrir el PR.
+- Si aparece un conflicto, lo resuelve el agente dueño de la rama.
+- Todo cambio llega a `main` por PR con CI en verde. Las únicas excepciones son los cambios de
+  `packages/shared`, `.github/` y `docs/` que el Arquitecto publica con el OK del Gerente.
 
 ## Lo que no se hace
 
