@@ -141,18 +141,25 @@ Registrada en `AGENTS.md` y detallada en `apps/web/README.md`.
 ## PARTE B — Estado actual (snapshot, caduca)
 
 ### Checklist v0 de mi rol
-`docs/checklist-v0.md` no existe en el repo (buscado el 2026-11-17). Checklist según las tareas
-asignadas:
-- [x] Bocetos 360 px y escritorio — `docs/web/bocetos/terminal-v1.html`, aprobados por el Gerente.
-- [x] Terminal con Lightweight Charts v5 sobre el feed — commit `944d0a5`, merge `8f0a3ce` en `main`.
-- [x] Velas/área en vivo, cambio de símbolo, reconexión — verificados en navegador.
-- [ ] Tipo línea y cambio de temporalidad — [SIN VERIFICAR] en navegador.
-- [x] Lista de símbolos con búsqueda sin tildes y filtros por clase — `features/symbols/`.
-- [ ] Ticket que envía órdenes — UI lista, botones deshabilitados; falta login y cuenta.
-- [ ] Posiciones, órdenes e historial — solo estados vacíos.
-- [ ] Ingreso, ranking, cuenta, onboarding — sin empezar (placeholders).
-- [ ] Indicadores, dibujo, tema manual — sin empezar.
-- [ ] Carga < 3 s en 4G — [SIN VERIFICAR]; bundle 507 kB (158 kB gzip).
+Fuente: `docs/Checklist v0.md` (local, 2026-11-18; aún no está en `main`). v0 = solo market,
+6 símbolos, 1:1; indicadores, dibujo y onboarding quedan fuera de v0.
+- [x] Bocetos móvil y escritorio aprobados — `docs/web/bocetos/terminal-v1.html` ("Aprobados, sigue").
+- [ ] Pantalla de ingreso — sin empezar.
+- [ ] Lista de símbolos con precio en vivo y estado abierto/cerrado — precio en vivo y `stale` sí
+  (`features/symbols/`); abierto/cerrado no: falta `marketOpen` en el contrato.
+- [ ] Velas con Lightweight Charts v5, temporalidades 1m, 5m, 1h — velas en vivo verificadas en
+  navegador (commit `944d0a5`); cambio de temporalidad [SIN VERIFICAR]; sin historial.
+- [x] Ticks con `series.update()`, sin re-render — `price-chart.tsx`.
+- [ ] Ticket simple por monto con confirmación — UI lista, botones deshabilitados, no envía órdenes.
+- [ ] Posiciones con P&L vivo y Cerrar — solo estado vacío.
+- [ ] Saldo y equity visibles — no.
+- [ ] Ranking simple — placeholder.
+- [ ] Conexión: en vivo y reconectando sí (verificado cortando el servidor); mercado cerrado no.
+- [ ] Errores del servidor en español — falta esquema de error en shared.
+- [x] Funciona en 360 px y escritorio (lo hecho) — verificado en navegador, sin scroll horizontal.
+- [x] Atribución a TradingView visible — `attributionLogo: true`, verificada en 360 px.
+- [x] Textos en `i18n` — `src/i18n/es.ts`.
+- Nota: el checklist usa 6 símbolos; la app muestra los 31 de `INSTRUMENTS` de `@coin/shared`.
 
 ### Decisiones tomadas
 | Decisión | Por qué | Quién aprobó | ADR / archivo |
