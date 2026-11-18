@@ -1,7 +1,7 @@
 # Agente QA + Seguridad — v1.1
 
-Fecha: 2026-11-17 · Basado en: Claude (Fable 5.2 y Opus 5.5) en Claude Code, sesiones del
-2026-11-16 y 2026-11-17 · Versión anterior: v1
+Fecha: 2026-11-18 · Basado en: Claude (Fable 5.2 y Opus 5.5) en Claude Code, sesiones del
+2026-11-16 al 2026-11-18 · Versión anterior: v1
 
 ## PARTE A — System prompt (reglas permanentes)
 
@@ -48,7 +48,8 @@ justo. Entregas evidencia, no opiniones.
 - `node --check tests/load/ws-market-500.js` — solo sintaxis del escenario k6 — verificado: sí.
 - `pnpm test:e2e`, `pnpm test:load`, `pnpm audit:leaderboard` — NO existen en `package.json`.
   Están en el rol original como objetivo; hay que crearlos.
-- `pnpm audit` — [SIN VERIFICAR].
+- `pnpm audit --audit-level high` — vulnerabilidades de dependencias — verificado: sí
+  (2026-11-18, sale con código 1: 1 alta y 1 moderada). Usa `--json` para ver las rutas.
 
 ### Estructura de carpetas que te pertenece
 
@@ -108,9 +109,14 @@ Registrada en `AGENTS.md` (sección "Estructura y responsables") y `README.md`.
    herramienta de edición, nunca Python embebido con comillas mixtas.
 6. **Abrir un PR** → `gh` no existe y el navegador de la app no tiene sesión de GitHub → hacer
    push y entregar al usuario título y cuerpo listos para la página `compare/main...<rama>`.
-7. **Instrucciones con erratas** → el pedido puede citar archivos de otro rol o que no existen
-   (p. ej. `docs/checklist-v0.md`) → verificar en todas las ramas (`git ls-tree -r`) y reportar
-   la discrepancia antes de inventar contenido.
+7. **Instrucciones con erratas** → el pedido puede citar archivos de otro rol o con otro nombre
+   (`docs/checklist-v0.md` era `docs/Checklist v0.md`, sin seguimiento) → buscar en todas las
+   ramas (`git ls-tree -r`) y en disco (`find /c/dev -maxdepth 3 -iname "*checklist*"`), y
+   reportar la discrepancia antes de inventar contenido.
+8. **Archivos de agentes editados en varias ramas** → el Arquitecto subió a `main` la v1 de
+   `docs/agents/qa-seguridad.md` (`8578dbc`) mientras la v1.1 estaba en mi rama: conflicto
+   add/add → traer `main`, quedarse con la versión más nueva del propio rol
+   (`git checkout --ours`) y revisar el resto del merge antes del commit.
 
 ### Prácticas senior adoptadas
 
@@ -136,24 +142,27 @@ Registrada en `AGENTS.md` (sección "Estructura y responsables") y `README.md`.
 
 ## PARTE B — Estado actual (snapshot, caduca)
 
-`docs/checklist-v0.md` no existe en ninguna rama local ni remota (verificado 2026-11-17 con
-`git ls-tree -r` sobre todas). Este checklist sale de las responsabilidades del rol y de
-`docs/qa/plan.md`.
+Actualizado el 2026-11-18. Fuente: `docs/Checklist v0.md`, que existe solo en local en
+`C:\dev\CoinTradingLabs\docs\` (sin seguimiento, aún no está en `main`). Verificado sobre `main`
+en `0c9602a`.
 
 ### Checklist v0 de mi rol
 
-- [x] Plan de pruebas priorizado por riesgo — `docs/qa/plan.md` (16 riesgos, P0–P2).
-- [x] Propiedades sobre el motor — 16 en `tests/properties/engine-invariants.test.ts`, en `main`.
-- [x] Defectos del motor reportados — DEF-001 (Alta) y DEF-002 (Media), `docs/qa/defectos.md`.
+- [x] Plan de pruebas por riesgo en `docs/qa/plan.md` — en `main` desde `8c191fd`.
 - [x] Borrador del reglamento anti-trampa — `docs/qa/reglamento-anti-trampa.md`, sin aprobar.
-- [~] Carga de 500 WebSocket — `tests/load/ws-market-500.js` escrito, **nunca ejecutado**.
-- [ ] Ráfagas de órdenes y p95 < 200 ms — sin escenario.
-- [ ] Idempotencia y concurrencia de órdenes — necesita Postgres.
-- [ ] Seguridad: autorización, entradas, límites de uso — `tests/security/` vacío.
-- [ ] Resiliencia: caída del feed, reinicio de API, restauración de base.
-- [ ] Flujo completo con Playwright en escritorio y móvil.
-- [ ] Auditoría del ranking (`pnpm audit:leaderboard`) — no hay ranking.
-- [ ] Lista Go/No-Go firmada. Simulacro con usuarios reales.
+- [x] Tests de propiedades (fast-check) sobre invariantes contables — 16 en
+      `tests/properties/engine-invariants.test.ts`; `pnpm --filter @coin/qa test` en verde.
+- [ ] E2E con Playwright del flujo completo, en móvil y escritorio — Playwright no está instalado.
+- [ ] k6 de 500 conexiones WebSocket ejecutada en staging, con reporte — `tests/load/ws-market-500.js`
+      escrito, **nunca ejecutado**: no hay k6 ni staging.
+- [ ] Verificado: un usuario no puede leer ni operar otra cuenta — `tests/security/` vacío.
+- [ ] Verificado: payloads manipulados se rechazan — solo a nivel de motor (R1, R4); falta la API.
+- [ ] Verificado: misma `clientOrderId` no duplica — necesita Postgres.
+- [ ] `pnpm audit` sin vulnerabilidades altas — **falla**: 1 alta (`picomatch` 4.0.7,
+      GHSA-fc5q-39xc-vjpf, vía `apps/web` > `@tailwindcss/vite` > `vite`) y 1 moderada
+      (`minimatch`, vía `typescript-eslint`). Ambas son dependencias de desarrollo.
+- [x] Lista de defectos con severidad en `docs/qa/` — `docs/qa/defectos.md`.
+- [ ] Reporte Go/No-Go de v0 entregado al Gerente — hoy sería No-Go por DEF-001.
 
 ### Decisiones tomadas
 
@@ -166,16 +175,17 @@ Registrada en `AGENTS.md` (sección "Estructura y responsables") y `README.md`.
 
 ### Pendientes y deuda técnica
 
-| Ítem                                                         | Prioridad | Bloqueado por                                              |
-| ------------------------------------------------------------ | --------- | ---------------------------------------------------------- |
-| Volver a probar DEF-001 tras la regla del Gerente            | P0        | Decisión del Gerente y Backend                             |
-| Tests de idempotencia y concurrencia en `place-order.ts`     | P0        | Postgres en el CI (o local con Docker)                     |
-| Ejecutar `ws-market-500.js`                                  | P0        | k6 instalado; staging (Arquitecto)                         |
-| Escenario k6 de ráfagas contra `POST /orders`                | P0        | Staging y cuentas sintéticas                               |
-| Casos de `tests/security/` (token ajeno, vencido, entradas)  | P0        | Nada: se puede empezar                                     |
-| Resiliencia del feed con `last:{symbol}`                     | P1        | Ya en `main` (`d85b1ac`); [SIN VERIFICAR] de punta a punta |
-| Crear scripts `test:e2e`, `test:load`, `audit:leaderboard`   | P1        | Ranking (Backend), web de órdenes (Frontend)               |
-| Las ramas `qa/plan-y-pruebas-base` local y su remoto borrado | Baja      | Nada: limpiar                                              |
+| Ítem                                                             | Prioridad | Bloqueado por                                              |
+| ---------------------------------------------------------------- | --------- | ---------------------------------------------------------- |
+| Volver a probar DEF-001 tras la regla del Gerente                | P0        | Decisión del Gerente y Backend                             |
+| Tests de idempotencia y concurrencia en `place-order.ts`         | P0        | Postgres en el CI (o local con Docker)                     |
+| Ejecutar `ws-market-500.js`                                      | P0        | k6 instalado; staging (Arquitecto)                         |
+| Escenario k6 de ráfagas contra `POST /orders`                    | P0        | Staging y cuentas sintéticas                               |
+| Casos de `tests/security/` (token ajeno, vencido, entradas)      | P0        | Nada: se puede empezar                                     |
+| Resiliencia del feed con `last:{symbol}`                         | P1        | Ya en `main` (`d85b1ac`); [SIN VERIFICAR] de punta a punta |
+| Crear scripts `test:e2e`, `test:load`, `audit:leaderboard`       | P1        | Ranking (Backend), web de órdenes (Frontend)               |
+| Reportar `picomatch` alta de `pnpm audit` al dueño de `apps/web` | P1        | Decisión del Gerente sobre quién actualiza `vite`          |
+| Las ramas `qa/plan-y-pruebas-base` local y su remoto borrado     | Baja      | Nada: limpiar                                              |
 
 ### Riesgos abiertos
 
@@ -203,4 +213,6 @@ Registrada en `AGENTS.md` (sección "Estructura y responsables") y `README.md`.
 - Reglamento: bots permitidos o no, sanciones, descargos, verificación de identidad.
 - Quién aprueba el ranking final antes de premiar.
 - Fecha y participantes del simulacro general.
-- ¿Existe `docs/checklist-v0.md` o debe crearlo el Arquitecto?
+- ¿Se sube `docs/Checklist v0.md` a `main`? Hoy solo existe en local.
+- El checklist v0 lista 6 símbolos; el catálogo del repo tiene 31. ¿Cuál vale para v0?
+- ¿Quién actualiza `vite` por la vulnerabilidad alta de `picomatch`? Es dependencia de `apps/web`.
