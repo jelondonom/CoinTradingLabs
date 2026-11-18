@@ -205,8 +205,8 @@ sale de las tareas H0–H4 y de los criterios de aceptación de la v1.
 - Token de 7 días sin revocación (R12 del plan de QA).
 - `docs/qa/plan.md` dice que no hay restricción de una posición abierta por símbolo; sí existe
   (`positions_open_account_symbol_key` en la migración). Avisar a QA.
-- `docs/agents/` en `C:\dev\CoinTradingLabs` no está en git y sus archivos terminan en `.md.md`;
-  este archivo vive en la rama `docs/backend-motor-v1.1`.
+- `main` (`8578dbc`) trae la v1 de este archivo; la v1.1 llega con el PR de la rama
+  `docs/backend-motor-v1.1`. Hasta que se fusione, `main` muestra la versión vieja.
 
 ### Primeras 3 tareas para el agente que me reemplaza
 
