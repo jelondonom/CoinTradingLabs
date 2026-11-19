@@ -1,6 +1,12 @@
-import { SYMBOLS, symbolStatusSchema, type SymbolStatus } from '@coin/shared';
+import {
+  SYMBOLS,
+  staleAfterMs,
+  symbolStatusSchema,
+  type InstrumentSymbol,
+  type SymbolStatus,
+} from '@coin/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { StaleTracker, staleAfterMs } from './stale-tracker.js';
+import { StaleTracker, symbolStatus } from './stale-tracker.js';
 
 const T0 = 1_800_000_000_000;
 
@@ -83,19 +89,24 @@ describe('StaleTracker', () => {
     tracker.stop();
   });
 
-  it('usa un umbral más largo para los símbolos que se mueven poco', () => {
-    expect(staleAfterMs('BTCUSD')).toBe(30_000);
-    expect(staleAfterMs('EURUSD')).toBe(60_000);
-    expect(staleAfterMs('NGASUSD')).toBe(60_000);
+  it('usa el umbral por símbolo de @coin/shared (D-11)', () => {
+    // Si shared cambia los valores, este test sigue a shared; solo exige que el umbral lento sea mayor.
+    const fast: InstrumentSymbol = 'BTCUSD';
+    const slow: InstrumentSymbol = 'EURUSD';
+    // Margen de 2 s para revisar justo antes y justo después del umbral lento.
+    expect(staleAfterMs(slow) - staleAfterMs(fast)).toBeGreaterThan(2_000);
 
     const { tracker } = setup();
-    tracker.recordTick('BTCUSD');
-    tracker.recordTick('EURUSD');
-    vi.advanceTimersByTime(45_000);
-    expect(tracker.status('BTCUSD').stale).toBe(true);
-    expect(tracker.status('EURUSD').stale).toBe(false);
-    vi.advanceTimersByTime(20_000);
-    expect(tracker.status('EURUSD').stale).toBe(true);
+    tracker.recordTick(fast);
+    tracker.recordTick(slow);
+    // El tracker revisa cada segundo, así que basta 1 s más que el umbral para que cambie.
+    vi.advanceTimersByTime(staleAfterMs(fast) + 1_000);
+    expect(tracker.status(fast).stale).toBe(true);
+    expect(tracker.status(slow).stale).toBe(false);
+    vi.advanceTimersByTime(staleAfterMs(slow) - staleAfterMs(fast) - 2_000);
+    expect(tracker.status(slow).stale).toBe(false);
+    vi.advanceTimersByTime(2_000);
+    expect(tracker.status(slow)).toMatchObject({ stale: true, marketOpen: false });
     tracker.stop();
   });
 
@@ -105,5 +116,22 @@ describe('StaleTracker', () => {
     tracker.stop();
     vi.advanceTimersByTime(120_000);
     expect(changes).toHaveLength(1);
+  });
+});
+
+describe('symbolStatus (D-05)', () => {
+  it('abierto si el precio está vigente y cerrado si está obsoleto', () => {
+    expect(symbolStatus('AAPL', false, 5)).toEqual({
+      symbol: 'AAPL',
+      stale: false,
+      marketOpen: true,
+      ts: 5,
+    });
+    expect(symbolStatus('AAPL', true, 6)).toEqual({
+      symbol: 'AAPL',
+      stale: true,
+      marketOpen: false,
+      ts: 6,
+    });
   });
 });
