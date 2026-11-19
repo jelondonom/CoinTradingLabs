@@ -50,26 +50,27 @@ Aplica a todos los participantes del Challenge durante las dos ventanas del rank
   cuando esa bolsa está cerrada. El precio válido para el Challenge es el de la plataforma.
 - Las órdenes se ejecutan al precio de la plataforma en el momento de recibirlas: las compras al
   `ask` y las ventas al `bid`. El participante no puede enviar su propio precio.
-- Si el proveedor falla y el precio queda obsoleto, las órdenes en ese símbolo se rechazan. No
-  hay reclamos por órdenes rechazadas ni por movimientos ocurridos mientras el precio estaba
-  obsoleto.
+- Si el proveedor falla y el precio queda obsoleto, las órdenes en ese símbolo se rechazan.
+  **[Decide el Gerente: si se aceptan reclamos por órdenes rechazadas o por movimientos ocurridos
+  mientras el precio estaba obsoleto.]**
 
 ## 4. Conductas prohibidas
 
-| N.º | Conducta                                                                                         |
-| --- | ------------------------------------------------------------------------------------------------ |
-| 1   | Tener o usar más de una cuenta                                                                   |
-| 2   | Compartir, prestar, vender u operar la cuenta de otra persona                                    |
-| 3   | Coordinar cuentas: posiciones opuestas o espejo entre dos o más cuentas para asegurar un ganador |
-| 4   | Explotar errores de la plataforma: redondeo, precios obsoletos, gaps de apertura, duplicación    |
-| 5   | Enviar peticiones manipuladas: precios propios, cantidades inválidas, símbolos falsos            |
-| 6   | Acceder o intentar acceder a datos de otra cuenta o a funciones de administración                |
-| 7   | Degradar el servicio: ráfagas de peticiones, conexiones masivas o escaneos                       |
-| 8   | Operar con scripts, bots o cualquier programa que envíe órdenes de forma automática (D-13)       |
+| N.º | Conducta                                                                                            |
+| --- | --------------------------------------------------------------------------------------------------- |
+| 1   | Tener o usar más de una cuenta                                                                      |
+| 2   | Compartir, prestar, vender u operar la cuenta de otra persona                                       |
+| 3   | Coordinar cuentas: posiciones opuestas o espejo entre dos o más cuentas para asegurar un ganador    |
+| 4   | Explotar errores de la plataforma: redondeo, precios obsoletos, apertura de la ventana, duplicación |
+| 5   | Enviar peticiones manipuladas: precios propios, cantidades inválidas, símbolos falsos               |
+| 6   | Acceder o intentar acceder a datos de otra cuenta o a funciones de administración                   |
+| 7   | Degradar el servicio: ráfagas de peticiones, conexiones masivas o escaneos                          |
+| 8   | Operar con scripts, bots o cualquier programa que envíe órdenes de forma automática (D-13)          |
 
-La conducta 8 incluye llamar a la API directamente fuera de la aplicación web, extensiones del
-navegador que operen solas y programas que repitan órdenes. Usar herramientas de análisis que no
-envían órdenes está permitido.
+Propuesta de QA para precisar la conducta 8 **[Decide el Gerente]**: incluye enviar órdenes
+llamando a la API fuera de la aplicación web, extensiones del navegador que operen solas y
+programas que repitan órdenes. Usar herramientas de análisis que no envían órdenes está
+permitido.
 
 Quien encuentre un error debe reportarlo a la organización y no usarlo. **[Decide el Gerente:
 si se reconoce de alguna forma a quien reporta un error.]**
@@ -101,7 +102,7 @@ Ninguna es una prueba. Cada una abre una revisión manual.
 | Una cuenta con muchas IP o dispositivos a la vez               | Cuenta compartida          | Datos móviles y Wi-Fi               |
 | Dos cuentas con órdenes opuestas en el mismo símbolo y segundo | Cuentas coordinadas        | Coincidencia en un símbolo popular  |
 | Dos cuentas con las mismas órdenes, una tras otra              | Copia o un solo operador   | Amigos que comentan sus jugadas     |
-| Muchas órdenes mínimas o a intervalos regulares                | Bot o abuso de redondeo    | Ninguna habitual                    |
+| Muchas órdenes de 10 USD o a intervalos regulares              | Bot o abuso de redondeo    | Ninguna habitual                    |
 | Órdenes concentradas tras una caída del feed                   | Abuso de precios obsoletos | Entusiasmo al volver el precio      |
 | Retorno muy alto con riesgo casi nulo                          | Explotación de un error    | Ninguna habitual                    |
 
@@ -130,7 +131,8 @@ La señal por IP pesa poco en este evento: casi todos operarán desde la misma r
 **Desempate (D-12, provisional)**
 
 1. Se ordena por retorno, calculado con 4 decimales.
-2. Si dos cuentas empatan, gana la que tenga menos órdenes ejecutadas.
+2. Si dos cuentas empatan, gana la que tenga menos órdenes. **[Decide el Gerente: si cuentan
+   solo las ejecutadas o también las rechazadas.]**
 3. Si siguen empatadas, gana la que llegó primero a ese retorno.
 
 **Aprobación del ranking final (D-19)**
@@ -155,6 +157,10 @@ La señal por IP pesa poco en este evento: casi todos operarán desde la misma r
 2. Sesiones simultáneas por cuenta y reconocimiento a quien reporta un error.
 3. Sanciones y proceso de descargos.
 4. Verificación de identidad y plazo entre el cierre y la premiación.
-5. Desempate definitivo (D-12 es provisional).
+5. Desempate definitivo (D-12 es provisional) y qué órdenes cuentan para desempatar.
 6. Licencia de uso de los precios de Binance (D-08, la consulta el Gerente).
-7. Revisión legal del tratamiento de datos personales.
+7. Fuente de los precios: D-05 y D-08 dicen "perpetuos", pero el código toma criptomonedas y
+   EURUSD de spot (`apps/market-data/src/normalizer/symbol-map.ts`). Este reglamento describe lo
+   que hace el código; hay que corregir la decisión o el código.
+8. Alcance exacto de la conducta 8 y reclamos por precios obsoletos.
+9. Revisión legal del tratamiento de datos personales.
