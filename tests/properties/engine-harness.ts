@@ -18,6 +18,14 @@ import {
 } from '../../apps/api/src/engine/index.js';
 
 export const STALE_AFTER_MS = 30_000;
+/**
+ * Constantes del oráculo, copiadas de `docs/engine-rules.md` §5 y no del motor: si el motor
+ * cambia una sin cambiar las reglas, R1 lo detecta.
+ */
+/** Fila 4 (D-11): adelanto máximo tolerado de un tick sobre la hora del servidor. */
+export const MAX_FUTURE_SKEW_MS = 2_000;
+/** Fila 6 (D-01): monto mínimo por orden, en centavos. */
+export const MIN_ORDER_CENTS = 1_000n;
 export const WINDOW = { startsAt: 1_800_000_000_000, endsAt: 1_800_000_000_000 + 2 * 86_400_000 };
 /** Hora por defecto: dentro de la ventana de la competencia. */
 export const NOW = WINDOW.startsAt + 3_600_000;
@@ -132,27 +140,58 @@ export function unrealizedOf(sim: Sim): Decimal {
  * Devuelve el motivo de rechazo o `'filled'`. Usa enteros (`BigInt`) y no el decimal del motor.
  */
 export function expectedOutcome(sim: Sim, command: Command): RejectReason | 'filled' {
+  // Filas 1 y 2.
   if (!command.tradable) return 'market_closed';
   if (command.now < WINDOW.startsAt || command.now >= WINDOW.endsAt) return 'market_closed';
+  // Fila 3.
   if (!command.tick) return 'no_price';
-  if (command.tick.ageMs > STALE_AFTER_MS) return 'stale_price';
+  // Fila 4: viejo (`ahora − tick.ts > umbral`) o del futuro (`tick.ts − ahora > 2 s`).
+  if (command.tick.ageMs > STALE_AFTER_MS || -command.tick.ageMs > MAX_FUTURE_SKEW_MS) {
+    return 'stale_price';
+  }
 
+  // Fila 5. `minQuantity` es una unidad del último decimal permitido.
   const { quantityPrecision } = command.instrument;
   const units = toScaled(command.quantity, quantityPrecision);
-  // `minQuantity` es una unidad del último decimal permitido.
   if (units === null || units < 1n) return 'invalid_quantity';
 
+  // Fila 6 (D-01): el monto ya redondeado en contra del participante, salvo cerrar todo.
   const position = sim.positions.get(command.instrument.symbol);
+  const held = position ? toScaledOrThrow(position.quantity.toFixed(), quantityPrecision) : 0n;
+  const cents = notionalCents(command.side, units, command.tick, quantityPrecision);
+  const closesPosition = command.side === 'sell' && held > 0n && units === held;
+  if (cents < MIN_ORDER_CENTS && !closesPosition) return 'below_minimum';
+
+  // Filas 7 y 8.
   if (command.side === 'buy') {
-    const cents = roundHalfUpToCents(
-      units * toScaledOrThrow(command.tick.ask, 8),
-      quantityPrecision + 8,
-    );
     const balanceCents = toScaledOrThrow(sim.balance.toFixed(), 2);
     return cents > balanceCents ? 'insufficient_funds' : 'filled';
   }
-  const held = position ? toScaledOrThrow(position.quantity.toFixed(), quantityPrecision) : 0n;
   return held <= 0n || units > held ? 'insufficient_position' : 'filled';
+}
+
+/**
+ * Monto de una ejecución en centavos (`docs/engine-rules.md` §4, D-01): `unidades × ask` al
+ * techo en una compra y `unidades × bid` al piso en una venta.
+ */
+export function notionalCents(
+  side: 'buy' | 'sell',
+  units: bigint,
+  tick: { bid: string; ask: string },
+  quantityPrecision: number,
+): bigint {
+  const scale = quantityPrecision + 8;
+  return side === 'buy'
+    ? ceilToCents(units * toScaledOrThrow(tick.ask, 8), scale)
+    : floorToCents(units * toScaledOrThrow(tick.bid, 8), scale);
+}
+
+/** Monto de una orden concreta en centavos. Lanza si no tiene tick o la cantidad no cabe. */
+export function commandNotionalCents(command: Command): bigint {
+  if (!command.tick) throw new Error('Orden sin tick: no tiene monto.');
+  const { quantityPrecision } = command.instrument;
+  const units = toScaledOrThrow(command.quantity, quantityPrecision);
+  return notionalCents(command.side, units, command.tick, quantityPrecision);
 }
 
 /** Convierte un decimal en texto a entero con `scale` decimales. `null` si no cabe exacto. */
@@ -172,10 +211,24 @@ function toScaledOrThrow(value: string, scale: number): bigint {
   return scaled;
 }
 
-/** Redondea a centavos, la mitad hacia arriba, un entero no negativo con `scale` decimales. */
+/**
+ * Redondea a centavos, la mitad hacia arriba, un entero no negativo con `scale` decimales.
+ * Desde D-01 solo vale para lo que no mueve el saldo: valor de mercado y costo liberado.
+ */
 export function roundHalfUpToCents(value: bigint, scale: number): bigint {
   const divisor = 10n ** BigInt(scale - 2);
   return (value + divisor / 2n) / divisor;
+}
+
+/** Redondea a centavos hacia arriba un entero no negativo con `scale` decimales (compra, D-01). */
+export function ceilToCents(value: bigint, scale: number): bigint {
+  const divisor = 10n ** BigInt(scale - 2);
+  return (value + divisor - 1n) / divisor;
+}
+
+/** Redondea a centavos hacia abajo un entero no negativo con `scale` decimales (venta, D-01). */
+export function floorToCents(value: bigint, scale: number): bigint {
+  return value / 10n ** BigInt(scale - 2);
 }
 
 // --- Generadores ---
@@ -188,19 +241,34 @@ export function scaled(n: number | bigint, scale: number): string {
 
 export const instrumentArb: fc.Arbitrary<Instrument> = fc.constantFrom(...INSTRUMENTS);
 
-/** Tick con `bid > 0` y `ask ≥ bid`, en la precisión de precio del instrumento. */
-export function tickArb(instrument: Instrument, maxAgeMs = 0) {
+/**
+ * Tick con `bid > 0` y `ask ≥ bid`, en la precisión de precio del instrumento. Su edad va de
+ * `minAgeMs` a `maxAgeMs`; una edad negativa es un tick fechado en el futuro.
+ */
+export function tickArb(instrument: Instrument, maxAgeMs = 0, minAgeMs = 0) {
   return fc
     .record({
       bidTicks: fc.integer({ min: 1, max: 20_000_000 }),
       spreadTicks: fc.integer({ min: 0, max: 200 }),
-      ageMs: fc.integer({ min: 0, max: maxAgeMs }),
+      ageMs: fc.integer({ min: minAgeMs, max: maxAgeMs }),
     })
     .map(({ bidTicks, spreadTicks, ageMs }) => ({
       bid: scaled(bidTicks, instrument.pricePrecision),
       ask: scaled(bidTicks + spreadTicks, instrument.pricePrecision),
       ageMs,
     }));
+}
+
+/**
+ * Tick fechado en el futuro (D-11): dentro y fuera de los 2 s tolerados, más los dos bordes
+ * exactos (+2.000 ms se acepta, +2.001 ms se rechaza).
+ */
+export function futureTickArb(instrument: Instrument) {
+  return fc.oneof(
+    tickArb(instrument, -1, -3 * MAX_FUTURE_SKEW_MS),
+    tickArb(instrument, -MAX_FUTURE_SKEW_MS, -MAX_FUTURE_SKEW_MS),
+    tickArb(instrument, -MAX_FUTURE_SKEW_MS - 1, -MAX_FUTURE_SKEW_MS - 1),
+  );
 }
 
 /** Cantidad válida: múltiplo entero de la unidad mínima del instrumento. */
@@ -281,18 +349,27 @@ const sizeArb = (instrument: Instrument): fc.Arbitrary<Intent['size']> =>
     },
   );
 
-/** Orden en condiciones normales: mercado abierto y tick fresco. */
+/**
+ * Orden en condiciones normales: mercado abierto y tick vigente. Vigente incluye un tick hasta
+ * 2 s en el futuro (D-11): relojes un poco desalineados no deben cambiar nada.
+ */
 function happyIntentArb(instrument: Instrument): fc.Arbitrary<Intent> {
   return fc.record({
     instrument: fc.constant(instrument),
     tradable: fc.constant(true),
     size: sizeArb(instrument),
-    tick: tickArb(instrument),
+    tick: fc.oneof(
+      { weight: 9, arbitrary: tickArb(instrument) },
+      { weight: 1, arbitrary: tickArb(instrument, -1, -MAX_FUTURE_SKEW_MS) },
+    ),
     now: fc.constant(NOW),
   });
 }
 
-/** Orden cualquiera: incluye mercado cerrado, sin precio, precio obsoleto y cantidad inválida. */
+/**
+ * Orden cualquiera: incluye mercado cerrado, sin precio, precio obsoleto (viejo o del futuro) y
+ * cantidad inválida.
+ */
 function anyIntentArb(instrument: Instrument): fc.Arbitrary<Intent> {
   return fc.record({
     instrument: fc.constant(instrument),
@@ -308,6 +385,7 @@ function anyIntentArb(instrument: Instrument): fc.Arbitrary<Intent> {
     tick: fc.oneof(
       { weight: 9, arbitrary: tickArb(instrument) },
       { weight: 2, arbitrary: tickArb(instrument, 2 * STALE_AFTER_MS) },
+      { weight: 2, arbitrary: futureTickArb(instrument) },
       fc.constant(null),
     ),
     now: fc.oneof(
@@ -335,7 +413,11 @@ function sequenceOf(intentArb: (instrument: Instrument) => fc.Arbitrary<Intent>)
 export const happySequenceArb = sequenceOf(happyIntentArb);
 export const anySequenceArb = sequenceOf(anyIntentArb);
 
-/** Primera compra de una cuenta nueva, por un monto que el saldo inicial alcanza a pagar. */
+/**
+ * Primera compra de una cuenta nueva, por un monto que el saldo inicial alcanza a pagar y que
+ * llega al mínimo de 10 USD (D-01). El presupuesto no basta para filtrar: `materialize` redondea
+ * las unidades hacia abajo, así que se filtra por el monto al techo.
+ */
 export const firstBuyArb: fc.Arbitrary<Command> = instrumentArb.chain((instrument) =>
   fc
     .record({
@@ -345,5 +427,24 @@ export const firstBuyArb: fc.Arbitrary<Command> = instrumentArb.chain((instrumen
       tick: tickArb(instrument),
       now: fc.constant(NOW),
     })
-    .map((intent) => materialize(newSim(), intent)),
+    .map((intent) => materialize(newSim(), intent))
+    .filter((command) => commandNotionalCents(command) >= MIN_ORDER_CENTS),
+);
+
+/**
+ * Escenario de DEF-001: un símbolo, un tick fijo y compras y ventas pequeñas (hasta 50 unidades
+ * mínimas) en cualquier orden. A precio fijo, ninguna secuencia debería subir el equity.
+ */
+export const fixedPriceScenarioArb = instrumentArb.chain((instrument) =>
+  fc.record({
+    instrument: fc.constant(instrument),
+    tick: tickArb(instrument),
+    orders: fc.array(
+      fc.record({
+        side: fc.constantFrom('buy' as const, 'sell' as const),
+        quantity: quantityArb(instrument, 50),
+      }),
+      { minLength: 1, maxLength: 80 },
+    ),
+  }),
 );

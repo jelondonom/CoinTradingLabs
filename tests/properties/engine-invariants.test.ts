@@ -10,9 +10,11 @@ import { dec, marketValue, ZERO } from '../../apps/api/src/engine/index.js';
 import {
   anySequenceArb,
   apply,
+  ceilToCents,
   equityOf,
   expectedOutcome,
   firstBuyArb,
+  floorToCents,
   happySequenceArb,
   ledgerSum,
   materialize,
@@ -20,6 +22,7 @@ import {
   roundHalfUpToCents,
   toScaled,
   unrealizedOf,
+  MAX_FUTURE_SKEW_MS,
   STALE_AFTER_MS,
   WINDOW,
   type Command,
@@ -44,6 +47,13 @@ function run(
 
 function expectSame(actual: { toFixed(): string }, expected: { toFixed(): string }): void {
   expect(actual.toFixed()).toBe(expected.toFixed());
+}
+
+/** `toScaled` que lanza en vez de devolver `null`: el generador nunca debería producirlo. */
+function scaledOrThrow(value: string, scale: number): bigint {
+  const result = toScaled(value, scale);
+  if (result === null) throw new Error(`"${value}" fuera de escala ${scale}.`);
+  return result;
 }
 
 describe('invariantes contables del motor', () => {
@@ -140,17 +150,19 @@ describe('ejecución', () => {
     );
   });
 
-  it('E2: el monto es cantidad × precio en centavos, y el asiento lleva su signo', () => {
+  it('E2: monto = cantidad × precio al techo (compra) o al piso (venta), con su signo', () => {
     fc.assert(
       fc.property(happySequenceArb, (commands) => {
         run(commands, (_sim, command, result) => {
           if (result.status !== 'filled') return;
           const { quantityPrecision } = command.instrument;
-          const units = toScaled(command.quantity, quantityPrecision);
-          const price = toScaled(result.price.toFixed(), 8);
-          if (units === null || price === null)
-            throw new Error('Cantidad o precio fuera de escala.');
-          const cents = roundHalfUpToCents(units * price, quantityPrecision + 8);
+          const exact =
+            scaledOrThrow(command.quantity, quantityPrecision) *
+            scaledOrThrow(result.price.toFixed(), 8);
+          const scale = quantityPrecision + 8;
+          // D-01: el redondeo va siempre en contra del participante.
+          const cents =
+            command.side === 'buy' ? ceilToCents(exact, scale) : floorToCents(exact, scale);
 
           expect(toScaled(result.notional.toFixed(), 2)).toBe(cents);
           expectSame(
@@ -184,17 +196,30 @@ describe('ejecución', () => {
     );
   });
 
-  it('E4: comprar y vender lo mismo al mismo tick cuesta exactamente el spread', () => {
+  it('E4: comprar y vender lo mismo al mismo tick cuesta el spread más menos de 2 centavos', () => {
     fc.assert(
       fc.property(firstBuyArb, (command) => {
+        if (!command.tick) throw new Error('Compra sin tick.');
         const sim = newSim();
         const buy = apply(sim, command);
+        // La venta cierra toda la posición: se permite aunque valga menos de 10 USD (D-01).
         const sell = apply(sim, { ...command, side: 'sell' });
         if (buy.status !== 'filled' || sell.status !== 'filled')
           throw new Error('Orden rechazada.');
 
         expect(sim.positions.size).toBe(0);
         expectSame(sim.balance.minus(INITIAL_BALANCE_USD), sell.notional.minus(buy.notional));
+
+        // Costo del ciclo = spread exacto + redondeo en contra: techo al comprar (< 1 centavo)
+        // y piso al vender (< 1 centavo).
+        const { quantityPrecision } = command.instrument;
+        const centUnit = 10n ** BigInt(quantityPrecision + 6);
+        const units = scaledOrThrow(command.quantity, quantityPrecision);
+        const spread =
+          units * (scaledOrThrow(command.tick.ask, 8) - scaledOrThrow(command.tick.bid, 8));
+        const cost = scaledOrThrow(buy.notional.minus(sell.notional).toFixed(), 2) * centUnit;
+        expect(cost - spread >= 0n).toBe(true);
+        expect(cost - spread < 2n * centUnit).toBe(true);
         expect(sim.balance.lte(INITIAL_BALANCE_USD)).toBe(true);
       }),
       RUNS,
@@ -226,6 +251,8 @@ describe('rechazos', () => {
             !command.tradable ||
             command.tick === null ||
             command.tick.ageMs > STALE_AFTER_MS ||
+            // Tick del futuro, más de 2 s (D-11, DEF-002).
+            -command.tick.ageMs > MAX_FUTURE_SKEW_MS ||
             command.now < WINDOW.startsAt ||
             command.now >= WINDOW.endsAt;
           if (blocked) expect(result.status).toBe('rejected');
@@ -289,6 +316,11 @@ describe('generadores', () => {
           if (result.status === 'rejected') count(result.reason);
           else if (command.side === 'buy') count('buy');
           else count(result.position.closed ? 'close' : 'partialSell');
+          // Ticks del futuro (D-11): unos se aceptan (hasta 2 s) y otros se rechazan.
+          if (command.tick && command.tick.ageMs < 0) {
+            if (result.status === 'filled') count('futureTickFilled');
+            else if (result.reason === 'stale_price') count('futureTickStale');
+          }
         });
       }
     }
@@ -301,8 +333,11 @@ describe('generadores', () => {
       'no_price',
       'stale_price',
       'invalid_quantity',
+      'below_minimum',
       'insufficient_funds',
       'insufficient_position',
+      'futureTickFilled',
+      'futureTickStale',
     ]) {
       expect(seen[key] ?? 0, key).toBeGreaterThanOrEqual(100);
     }
