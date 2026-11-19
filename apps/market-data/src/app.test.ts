@@ -72,14 +72,14 @@ describe('market-data', () => {
 
   it('informa el estado al suscribirse y en cada cambio, solo de los símbolos suscritos', async () => {
     app = await buildApp();
-    app.publishStatus({ symbol: 'AAPL', stale: false, ts: 1_000 });
+    app.publishStatus({ symbol: 'AAPL', stale: false, marketOpen: true, ts: 1_000 });
     const client = await connect(app);
 
     client.send({ type: 'subscribe', symbols: ['AAPL', 'BTCUSD'] });
     await client.waitFor(3);
     expect(client.messages[1]).toEqual({
       type: 'status',
-      data: { symbol: 'AAPL', stale: false, ts: 1_000 },
+      data: { symbol: 'AAPL', stale: false, marketOpen: true, ts: 1_000 },
     });
     // Sin precio todavía, el símbolo se informa como desactualizado.
     expect(client.messages[2]).toMatchObject({
@@ -87,12 +87,12 @@ describe('market-data', () => {
       data: { symbol: 'BTCUSD', stale: true },
     });
 
-    app.publishStatus({ symbol: 'ETHUSD', stale: true, ts: 2_000 });
-    app.publishStatus({ symbol: 'AAPL', stale: true, ts: 3_000 });
+    app.publishStatus({ symbol: 'ETHUSD', stale: true, marketOpen: false, ts: 2_000 });
+    app.publishStatus({ symbol: 'AAPL', stale: true, marketOpen: false, ts: 3_000 });
     await client.waitFor(4);
     expect(client.messages[3]).toEqual({
       type: 'status',
-      data: { symbol: 'AAPL', stale: true, ts: 3_000 },
+      data: { symbol: 'AAPL', stale: true, marketOpen: false, ts: 3_000 },
     });
     expect(client.messages).toHaveLength(4);
     client.close();

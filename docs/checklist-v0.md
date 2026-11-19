@@ -35,9 +35,9 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] `.env.example` completo y variables validadas con Zod.
 - [x] `/health` en `api` y `market-data`.
 - [x] ADRs 0001–0003 y README de arranque.
-- [ ] Contrato v2 (D-03, D-04, D-09, D-11) con ADR y `CONTRACT_VERSION = 2`.
+- [x] Contrato v2 (D-03, D-04, D-09, D-11) con ADR y `CONTRACT_VERSION = 2` — `docs/adr/0004-contrato-v2.md`, 33 tests en `contracts.test.ts`.
 - [ ] Postgres y Redis en el CI: los `*.integration.test.ts` corren.
-- [ ] `.gitignore` incluye `.claude/`.
+- [x] `.gitignore` incluye `.claude/` — `8578dbc`.
 - [ ] Caddy con HTTPS y un solo origen (`/api`, `/ws/*`, velas).
 - [ ] Scripts de despliegue, rollback, respaldo y restauración, listos para un VPS con Docker.
 - [ ] Opciones de hosting entregadas al Gerente (D-06).
@@ -108,7 +108,7 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] Borrador del reglamento anti-trampa.
 - [x] 16 tests de propiedades sobre invariantes contables.
 - [x] Lista de defectos con severidad — `docs/qa/defectos.md`.
-- [ ] Reglamento actualizado con D-05, D-08, D-12, D-13 y D-19.
+- [x] Reglamento actualizado con D-05, D-08, D-12, D-13 y D-19 — `docs/qa/reglamento-anti-trampa.md` v0.2.
 - [ ] `tests/security/`: cuenta ajena, sesión vencida o alterada y payloads manipulados.
 - [ ] Idempotencia y concurrencia probadas con Postgres.
 - [ ] DEF-001 y DEF-002 vueltos a probar y cerrados.
