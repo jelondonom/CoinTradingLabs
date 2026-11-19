@@ -48,10 +48,15 @@ del Gerente. Mientras no se decidan, no existen.
 - **Cantidad**: debe tener como máximo `quantityPrecision` decimales y ser mayor o igual a
   `minQuantity`. Si no, la orden se rechaza con `invalid_quantity`. El motor nunca redondea una
   cantidad por su cuenta.
-- **Dinero**: todo monto se redondea a centavos (2 decimales) con redondeo al más cercano, y la
-  mitad hacia arriba (`ROUND_HALF_UP`).
-- **Monto de una ejecución** (`notional`): `cantidad × precio`, redondeado a centavos. Es el
-  único valor que mueve el libro contable.
+- **Monto de una ejecución** (`notional`): `cantidad × precio`, redondeado a centavos siempre en
+  contra del participante (D-01). En una compra se redondea hacia arriba (`ROUND_CEIL`) y en una
+  venta hacia abajo (`ROUND_FLOOR`). Es el único valor que mueve el libro contable.
+- **Por qué** (DEF-001): con redondeo al más cercano, comprar en trozos y vender de golpe al
+  mismo precio creaba dinero (hasta medio centavo por orden). Con el redondeo en contra, a precio
+  fijo ninguna secuencia de órdenes sube el equity.
+- **Resto del dinero** (valor de mercado, costo liberado en una venta parcial): se redondea a
+  centavos al más cercano, la mitad hacia arriba (`ROUND_HALF_UP`). Estos valores no mueven el
+  saldo.
 
 ## 5. Validaciones y rechazos
 
@@ -65,8 +70,9 @@ rechazada se guarda con `status = rejected` y su motivo, y no genera asientos co
 | 3     | No hay ningún tick del símbolo                                            | `no_price`              |
 | 4     | El tick es obsoleto: `ahora − tick.ts > umbral` o `tick.ts − ahora > 2 s` | `stale_price`           |
 | 5     | La cantidad no cumple `quantityPrecision` o `minQuantity`                 | `invalid_quantity`      |
-| 6     | Compra: `notional > saldo`                                                | `insufficient_funds`    |
-| 7     | Venta: no hay posición abierta o `cantidad > cantidad de la posición`     | `insufficient_position` |
+| 6     | `notional < 10 USD`, salvo una venta que cierra toda la posición          | `below_minimum`         |
+| 7     | Compra: `notional > saldo`                                                | `insufficient_funds`    |
+| 8     | Venta: no hay posición abierta o `cantidad > cantidad de la posición`     | `insufficient_position` |
 
 Notas:
 
@@ -77,6 +83,11 @@ Notas:
 - **Tick del futuro** (D-11, DEF-002): un tick con fecha más de 2 segundos posterior a la hora del
   servidor también es obsoleto (`MAX_FUTURE_SKEW_MS`). Los 2 segundos toleran relojes un poco
   desalineados; sin este límite, un tick mal fechado seguiría sirviendo aunque el feed se caiga.
+- **Monto mínimo** (D-01): 10 USD por orden (`MIN_ORDER_USD`), comparado contra el `notional` ya
+  redondeado en su dirección. Una venta de toda la posición siempre se permite: si no, una
+  posición que vale menos de 10 USD quedaría atrapada (decisión del Gerente, 2026-11-18). Una
+  venta sin posición y por menos de 10 USD se rechaza con `below_minimum`, porque la fila 6 va
+  antes que la 8.
 - **Idempotencia**: si llega una orden con un `clientOrderId` que la cuenta ya usó, se devuelve la
   orden original sin ejecutar nada.
 
@@ -84,7 +95,7 @@ Notas:
 
 ### Compra
 
-1. `notional = redondear(cantidad × ask)`.
+1. `notional = redondearHaciaArriba(cantidad × ask)`.
 2. Asiento contable `trade_buy` por `−notional`. El saldo baja en `notional`.
 3. Posición: si no hay una abierta, se crea. Luego `quantity += cantidad` y
    `costBasis += notional`.
@@ -95,7 +106,7 @@ Notas:
 
 Sea `Q` la cantidad de la posición antes de vender y `q` la cantidad vendida.
 
-1. `notional = redondear(q × bid)`.
+1. `notional = redondearHaciaAbajo(q × bid)`.
 2. Costo liberado: si `q = Q`, es todo `costBasis`. Si `q < Q`, es
    `redondear(costBasis × q / Q)`.
 3. P&L realizado del fill: `notional − costo liberado`. Se acumula en `positions.realized_pnl`.
@@ -180,10 +191,13 @@ archivos.
 | 7   | Mover al contrato el login (`POST /auth/login`), la respuesta de `GET /account` y el formato de error                                   | Frontend, QA     |
 | 8   | Agregar Postgres al CI para que corran los tests de integración de la API                                                               | QA               |
 | 9   | Publicar en `shared`, junto a `staleAfterMs`, la tolerancia de tick futuro `MAX_FUTURE_SKEW_MS` = 2 s (D-11). Hoy vive solo en el motor | Datos de Mercado |
+| 10  | Agregar `below_minimum` a los motivos de rechazo y publicar `MIN_ORDER_USD` = 10 (D-01). Ya está en el borrador del contrato v2         | Frontend, QA     |
 
-Hasta que la solicitud 1 esté en el contrato, la base de datos guarda `stale_price` y la API
-responde `no_price` de forma temporal (aprobado por el Gerente el 2026-11-16). La conversión está
-en un solo lugar: `toPublicRejectReason`, en `apps/api/src/modules/dto.ts`.
+Hasta que las solicitudes 1 y 10 estén en el contrato, la base de datos guarda el motivo real y la
+API responde de forma temporal `no_price` en lugar de `stale_price` (aprobado por el Gerente el
+2026-11-16) e `invalid_quantity` en lugar de `below_minimum` (plan de T2, aprobado por el
+Gerente el 2026-11-18). La conversión está en un solo lugar: `toPublicRejectReason`, en
+`apps/api/src/modules/dto.ts`.
 
 ## 11. API REST V0
 
