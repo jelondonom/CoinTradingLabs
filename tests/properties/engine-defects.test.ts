@@ -22,28 +22,25 @@ import {
 const RUNS = { seed: 20270101, numRuns: 500 } as const;
 
 describe('DEF-001: el redondeo a centavos por orden crea dinero', () => {
-  it.fails(
-    'caso concreto: 1.000 compras de 1 TRX y una venta, al mismo precio, no dan ganancia',
-    () => {
-      const order: Command = {
-        instrument: getInstrument('TRXUSD'),
-        tradable: true,
-        side: 'buy',
-        quantity: '1',
-        // Sin spread, para aislar el redondeo: 1 × 0,2849 = 0,2849 se cobra como 0,28.
-        tick: { bid: '0.2849', ask: '0.2849', ageMs: 0 },
-        now: NOW,
-      };
-      const sim = newSim();
-      for (let i = 0; i < 1000; i += 1) apply(sim, order);
-      apply(sim, { ...order, side: 'sell', quantity: '1000' });
+  it('caso concreto: 1.000 compras de 1 TRX y una venta, al mismo precio, no dan ganancia', () => {
+    const order: Command = {
+      instrument: getInstrument('TRXUSD'),
+      tradable: true,
+      side: 'buy',
+      quantity: '1',
+      // Sin spread, para aislar el redondeo: 1 × 0,2849 = 0,2849 se cobra como 0,28.
+      tick: { bid: '0.2849', ask: '0.2849', ageMs: 0 },
+      now: NOW,
+    };
+    const sim = newSim();
+    for (let i = 0; i < 1000; i += 1) apply(sim, order);
+    apply(sim, { ...order, side: 'sell', quantity: '1000' });
 
-      expect(sim.positions.size).toBe(0);
-      expect(sim.balance.toFixed(2)).toBe(INITIAL_BALANCE_USD.toFixed(2));
-    },
-  );
+    expect(sim.positions.size).toBe(0);
+    expect(sim.balance.toFixed(2)).toBe(INITIAL_BALANCE_USD.toFixed(2));
+  });
 
-  it.fails('propiedad: a precio fijo, ninguna secuencia de órdenes sube el equity', () => {
+  it('propiedad: a precio fijo, ninguna secuencia de órdenes sube el equity', () => {
     fc.assert(
       fc.property(
         instrumentArb.chain((instrument) =>

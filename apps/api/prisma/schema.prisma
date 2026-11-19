@@ -49,12 +49,13 @@ enum OrderStatus {
   @@map("order_status")
 }
 
-/// Mismos códigos que `orderRejectReasonSchema` de `@coin/shared`, más `stale_price`
-/// (pendiente de agregar al contrato; ver `docs/engine-rules.md`).
+/// Mismos códigos que `orderRejectReasonSchema` de `@coin/shared`, más `stale_price` y
+/// `below_minimum` (llegan con el contrato v2; ver `docs/engine-rules.md` §10).
 enum OrderRejectReason {
   insufficient_funds
   insufficient_position
   invalid_quantity
+  below_minimum
   no_price
   market_closed
   stale_price

@@ -1,4 +1,13 @@
-import { ZERO, dec, roundMoney, roundPrice, type Decimal, type DecimalInput } from './decimal.js';
+import {
+  ZERO,
+  dec,
+  roundMoney,
+  roundMoneyDown,
+  roundMoneyUp,
+  roundPrice,
+  type Decimal,
+  type DecimalInput,
+} from './decimal.js';
 
 /** Motivos de rechazo, en el orden en que se evalúan (ver `docs/engine-rules.md`, sección 5). */
 export type RejectReason =
@@ -6,8 +15,15 @@ export type RejectReason =
   | 'no_price'
   | 'stale_price'
   | 'invalid_quantity'
+  | 'below_minimum'
   | 'insufficient_funds'
   | 'insufficient_position';
+
+/**
+ * Monto mínimo por orden en USD (D-01). TODO(contrato v2): leer `MIN_ORDER_USD` de
+ * `@coin/shared` cuando `CONTRACT_VERSION = 2` esté en `main`.
+ */
+export const MIN_ORDER_USD = 10;
 
 /** Adelanto máximo tolerado de un tick sobre la hora del servidor, en milisegundos (D-11). */
 export const MAX_FUTURE_SKEW_MS = 2_000;
@@ -106,8 +122,16 @@ export function executeMarketOrder(input: MarketOrderInput): MarketOrderResult {
   const costBasis = input.position ? dec(input.position.costBasis) : ZERO;
   const accumulatedPnl = input.position ? dec(input.position.realizedPnl) : ZERO;
 
+  // D-01: el redondeo va siempre en contra del participante, así ninguna secuencia de órdenes
+  // a precio fijo crea dinero (DEF-001). Compra al techo del centavo, venta al piso.
+  const notional =
+    side === 'buy' ? roundMoneyUp(quantity.times(ask)) : roundMoneyDown(quantity.times(bid));
+  // Cerrar toda la posición siempre se permite: si no, una posición de menos de 10 USD
+  // quedaría atrapada (decisión del Gerente, 2026-11-18).
+  const closesPosition = side === 'sell' && quantity.eq(held);
+  if (notional.lt(MIN_ORDER_USD) && !closesPosition) return reject('below_minimum');
+
   if (side === 'buy') {
-    const notional = roundMoney(quantity.times(ask));
     if (notional.gt(balance)) return reject('insufficient_funds');
 
     const newQuantity = held.plus(quantity);
@@ -131,10 +155,8 @@ export function executeMarketOrder(input: MarketOrderInput): MarketOrderResult {
 
   if (held.lte(0) || quantity.gt(held)) return reject('insufficient_position');
 
-  const notional = roundMoney(quantity.times(bid));
-  const closes = quantity.eq(held);
   // Al cerrar se libera todo el costo: así no queda un residuo de centavos en la posición.
-  const releasedCost = closes ? costBasis : roundMoney(costBasis.times(quantity).div(held));
+  const releasedCost = closesPosition ? costBasis : roundMoney(costBasis.times(quantity).div(held));
   const realizedPnl = notional.minus(releasedCost);
 
   return {
@@ -150,7 +172,7 @@ export function executeMarketOrder(input: MarketOrderInput): MarketOrderResult {
       // El precio promedio no cambia al vender.
       avgEntryPrice: roundPrice(costBasis.div(held)),
       realizedPnl: accumulatedPnl.plus(realizedPnl),
-      closed: closes,
+      closed: closesPosition,
     },
   };
 }

@@ -129,7 +129,17 @@ prisma/schema.prisma --script` y añade al final lo escrito a mano →
 - Probar cada regla con las cifras exactas del ejemplo de `docs/engine-rules.md` §8.
 - Base desechable por corrida para integración (`coin_api_test`, se recrea y se borra).
 - Prueba de punta a punta con la API compilada, una base y un índice de Redis aparte, y limpiar al terminar.
-- Pedir cambios de contrato por escrito en `docs/engine-rules.md` §10, con número.
+- Pedir cambios de contrato por escrito en `docs/engine-rules.md` §10, con número, el mismo día
+  que surgen. Decirlo solo en el chat no cuenta.
+- Entregar con cada PR la plantilla lista para el Gerente: título Conventional Commit, base y
+  rama, qué cambia, cómo se verificó (comandos y resultados) y la línea de Claude Code. El
+  Gerente la revisa y abre el PR a mano (aprobado por el Gerente, 2026-11-18).
+- Separar en el reporte lo que el `/code-review` encontró y no se corrigió, con su dueño (QA,
+  Arquitecto o una tarea futura).
+- Marcar el checklist con evidencia que sobreviva a la fusión (test, comando o número de PR),
+  nunca con un nombre de rama.
+- Antes de entregar un PR, correr `pnpm build` además de `pnpm test` y `pnpm lint`: el CI
+  corre los tres.
 
 ### Contratos con otros agentes
 
@@ -143,8 +153,10 @@ prisma/schema.prisma --script` y añade al final lo escrito a mano →
 
 ### Flujo de trabajo
 
-- Plan antes de tareas no triviales; esperar OK del Gerente.
+- Plan antes de tareas no triviales, en modo plan (`/plan`); esperar OK del Gerente.
 - Una tarea a la vez; reportar qué cambió y cómo revisarlo.
+- Cerrar cada tarea con: test, lint y build en verde → `/code-review` → commit → plantilla del
+  PR → lista de pendientes para otros agentes.
 - Certeza menor a ~80 %: preguntar. Nunca inventar.
 - Al cerrar sesión, actualizar este archivo según `docs/agents/PROTOCOLO`.
 

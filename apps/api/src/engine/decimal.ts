@@ -20,6 +20,16 @@ export function roundMoney(value: Decimal): Decimal {
   return value.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
 }
 
+/** Redondea un monto a centavos hacia arriba. Lo que paga el participante (compra, D-01). */
+export function roundMoneyUp(value: Decimal): Decimal {
+  return value.toDecimalPlaces(2, Decimal.ROUND_CEIL);
+}
+
+/** Redondea un monto a centavos hacia abajo. Lo que recibe el participante (venta, D-01). */
+export function roundMoneyDown(value: Decimal): Decimal {
+  return value.toDecimalPlaces(2, Decimal.ROUND_FLOOR);
+}
+
 /** Redondea un precio a 8 decimales, la escala con la que se guarda. */
 export function roundPrice(value: Decimal): Decimal {
   return value.toDecimalPlaces(8, Decimal.ROUND_HALF_UP);

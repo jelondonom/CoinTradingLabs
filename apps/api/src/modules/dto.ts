@@ -21,12 +21,14 @@ export function toNumber(value: { toString(): string }): number {
 }
 
 /**
- * TEMPORAL: el contrato aún no tiene `stale_price`, así que hacia afuera se informa como
- * `no_price`. La base guarda el motivo real. Se elimina cuando el Arquitecto lo agregue
- * (solicitud 1 de `docs/engine-rules.md`).
+ * TEMPORAL: el contrato v1 no tiene `stale_price` ni `below_minimum`, así que hacia afuera se
+ * informan como `no_price` e `invalid_quantity`. La base guarda el motivo real. Se elimina con
+ * el contrato v2 (solicitudes 1 y 10 de `docs/engine-rules.md`).
  */
 export function toPublicRejectReason(reason: DbRejectReason): OrderRejectReason {
-  return reason === 'stale_price' ? 'no_price' : reason;
+  if (reason === 'stale_price') return 'no_price';
+  if (reason === 'below_minimum') return 'invalid_quantity';
+  return reason;
 }
 
 export function toOrderDto(row: OrderRow): Order {
