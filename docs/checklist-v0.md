@@ -108,7 +108,7 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] Borrador del reglamento anti-trampa.
 - [x] 16 tests de propiedades sobre invariantes contables.
 - [x] Lista de defectos con severidad — `docs/qa/defectos.md`.
-- [ ] Reglamento actualizado con D-05, D-08, D-12, D-13 y D-19.
+- [x] Reglamento actualizado con D-05, D-08, D-12, D-13 y D-19 — `docs/qa/reglamento-anti-trampa.md` v0.2.
 - [ ] `tests/security/`: cuenta ajena, sesión vencida o alterada y payloads manipulados.
 - [ ] Idempotencia y concurrencia probadas con Postgres.
 - [ ] DEF-001 y DEF-002 vueltos a probar y cerrados.
