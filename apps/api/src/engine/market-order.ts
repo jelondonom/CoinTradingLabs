@@ -9,6 +9,9 @@ export type RejectReason =
   | 'insufficient_funds'
   | 'insufficient_position';
 
+/** Adelanto máximo tolerado de un tick sobre la hora del servidor, en milisegundos (D-11). */
+export const MAX_FUTURE_SKEW_MS = 2_000;
+
 export type EngineTick = {
   bid: DecimalInput;
   ask: DecimalInput;
@@ -85,6 +88,8 @@ export function executeMarketOrder(input: MarketOrderInput): MarketOrderResult {
   const ask = dec(tick.ask);
   if (!bid.isFinite() || !ask.isFinite() || bid.lte(0) || ask.lt(bid)) return reject('no_price');
   if (now - tick.ts > input.staleAfterMs) return reject('stale_price');
+  // Un tick del futuro tampoco es confiable: sin esto seguiría vigente aunque el feed se caiga.
+  if (tick.ts - now > MAX_FUTURE_SKEW_MS) return reject('stale_price');
 
   const quantity = dec(input.quantity);
   if (

@@ -73,7 +73,7 @@ describe('DEF-001: el redondeo a centavos por orden crea dinero', () => {
 });
 
 describe('DEF-002: un tick con fecha futura nunca se considera obsoleto', () => {
-  it.fails('rechaza un tick fechado una hora después de la hora del servidor', () => {
+  it('rechaza un tick fechado una hora después de la hora del servidor', () => {
     fc.assert(
       fc.property(firstBuyArb, (command) => {
         fc.pre(command.tick !== null);
