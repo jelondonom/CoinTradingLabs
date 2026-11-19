@@ -149,15 +149,16 @@ describe('monto mínimo de 10 USD (D-01)', () => {
 });
 
 describe('DEF-001: el redondeo no crea dinero', () => {
-  it('100 compras de 36 TRX y una venta, al mismo precio, no dan ganancia', () => {
-    // 36 × 0,2849 = 10,2564: cada compra cuesta 10,26. La venta de 3.600 paga 1.025,64.
+  it('100 compras de 37 TRX y una venta, al mismo precio, no dan ganancia', () => {
+    // 37 × 0,2849 = 10,5413: cada compra cuesta 10,55 (con la mitad hacia arriba costaba 10,54
+    // y el ciclo ganaba 0,13). La venta de 3.700 paga 1.054,13.
     const trx = { tradable: true, quantityPrecision: 0, minQuantity: '1' };
     const tick = { bid: '0.2849', ask: '0.2849', ts: NOW };
     let balance = '100000.00';
     let position: { quantity: string; costBasis: string; realizedPnl: string } | null = null;
     for (let i = 0; i < 100; i += 1) {
       const buy = filled(
-        executeMarketOrder(input({ instrument: trx, tick, quantity: '36', balance, position })),
+        executeMarketOrder(input({ instrument: trx, tick, quantity: '37', balance, position })),
       );
       balance = buy.balanceAfter.toFixed(2);
       position = {
@@ -168,11 +169,11 @@ describe('DEF-001: el redondeo no crea dinero', () => {
     }
     const sell = filled(
       executeMarketOrder(
-        input({ instrument: trx, tick, side: 'sell', quantity: '3600', balance, position }),
+        input({ instrument: trx, tick, side: 'sell', quantity: '3700', balance, position }),
       ),
     );
-    expect(sell.notional.toFixed(2)).toBe('1025.64');
-    expect(sell.balanceAfter.toFixed(2)).toBe('99999.64');
+    expect(sell.notional.toFixed(2)).toBe('1054.13');
+    expect(sell.balanceAfter.toFixed(2)).toBe('99999.13');
   });
 });
 
