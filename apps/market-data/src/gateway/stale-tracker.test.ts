@@ -25,7 +25,7 @@ describe('StaleTracker', () => {
     for (const symbol of SYMBOLS) {
       const status = tracker.status(symbol);
       expect(symbolStatusSchema.safeParse(status).success).toBe(true);
-      expect(status).toEqual({ symbol, stale: true, ts: T0 });
+      expect(status).toEqual({ symbol, stale: true, marketOpen: false, ts: T0 });
     }
     expect(changes).toEqual([]);
     tracker.stop();
@@ -36,8 +36,13 @@ describe('StaleTracker', () => {
     vi.advanceTimersByTime(500);
     tracker.recordTick('BTCUSD');
     tracker.recordTick('BTCUSD');
-    expect(changes).toEqual([{ symbol: 'BTCUSD', stale: false, ts: T0 + 500 }]);
-    expect(tracker.status('BTCUSD')).toEqual({ symbol: 'BTCUSD', stale: false, ts: T0 + 500 });
+    expect(changes).toEqual([{ symbol: 'BTCUSD', stale: false, marketOpen: true, ts: T0 + 500 }]);
+    expect(tracker.status('BTCUSD')).toEqual({
+      symbol: 'BTCUSD',
+      stale: false,
+      marketOpen: true,
+      ts: T0 + 500,
+    });
     tracker.stop();
   });
 
@@ -48,13 +53,23 @@ describe('StaleTracker', () => {
     expect(tracker.status('BTCUSD').stale).toBe(false);
 
     vi.advanceTimersByTime(1_000);
-    expect(changes.at(-1)).toEqual({ symbol: 'BTCUSD', stale: true, ts: T0 + 31_000 });
+    expect(changes.at(-1)).toEqual({
+      symbol: 'BTCUSD',
+      stale: true,
+      marketOpen: false,
+      ts: T0 + 31_000,
+    });
 
     vi.advanceTimersByTime(60_000);
     expect(changes).toHaveLength(2);
 
     tracker.recordTick('BTCUSD');
-    expect(changes.at(-1)).toEqual({ symbol: 'BTCUSD', stale: false, ts: T0 + 91_000 });
+    expect(changes.at(-1)).toEqual({
+      symbol: 'BTCUSD',
+      stale: false,
+      marketOpen: true,
+      ts: T0 + 91_000,
+    });
     tracker.stop();
   });
 

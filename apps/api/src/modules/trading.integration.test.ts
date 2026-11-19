@@ -120,8 +120,14 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
     ticks.set('BTCUSD', { bid, ask, ts });
   }
 
+  /** Contrato v2: `clientOrderId` es obligatorio; si el caso no trae uno, se genera. */
   function order(headers: { authorization: string }, payload: Record<string, unknown>) {
-    return app.inject({ method: 'POST', url: '/orders', headers, payload });
+    return app.inject({
+      method: 'POST',
+      url: '/orders',
+      headers,
+      payload: { clientOrderId: randomUUID(), ...payload },
+    });
   }
 
   /** Invariante 1: la suma del libro contable es el saldo de la cuenta. */
@@ -386,7 +392,9 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
 
     // 0,9 BTC cuestan 54.009,00: solo cabe una.
     const results = await Promise.all(
-      Array.from({ length: 4 }, () => placeOrder(deps(), trader.accountId, request)),
+      Array.from({ length: 4 }, () =>
+        placeOrder(deps(), trader.accountId, { ...request, clientOrderId: randomUUID() }),
+      ),
     );
 
     expect(results.filter((result) => result.order.status === 'filled')).toHaveLength(1);
