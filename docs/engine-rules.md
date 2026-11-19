@@ -169,17 +169,17 @@ Los tests del motor y las pruebas de QA deben comprobar siempre:
 Solicitudes al Agente Arquitecto sobre `packages/shared`. El Agente Backend no cambia esos
 archivos.
 
-| N.º | Solicitud                                                                                                    | Afecta a         |
-| --- | ------------------------------------------------------------------------------------------------------------ | ---------------- |
-| 1   | Agregar `stale_price` a `orderRejectReasonSchema`                                                            | Frontend, QA     |
-| 2   | Volver obligatorio `clientOrderId` en `placeOrderRequestSchema`                                              | Frontend, QA     |
-| 3   | Definir con Datos de Mercado la llave y el formato del último tick en Redis (propuesta: `last:{symbol}`)     | Datos de Mercado |
-| 4   | Publicar el umbral de precio obsoleto por símbolo en un lugar que el motor pueda leer                        | Datos de Mercado |
-| 5   | Confirmar que una posición larga se valora al `bid`. El comentario de `tickSchema` dice que `last` valora    | Frontend         |
-| 6   | Confirmar `quantityPrecision` del catálogo: el motor acepta los valores actuales de `INSTRUMENTS` sin cambio | Datos de Mercado |
-
-| 7 | Mover al contrato el login (`POST /auth/login`), la respuesta de `GET /account` y el formato de error | Frontend, QA |
-| 8 | Agregar Postgres al CI para que corran los tests de integración de la API | QA |
+| N.º | Solicitud                                                                                                                               | Afecta a         |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| 1   | Agregar `stale_price` a `orderRejectReasonSchema`                                                                                       | Frontend, QA     |
+| 2   | Volver obligatorio `clientOrderId` en `placeOrderRequestSchema`                                                                         | Frontend, QA     |
+| 3   | Definir con Datos de Mercado la llave y el formato del último tick en Redis (propuesta: `last:{symbol}`)                                | Datos de Mercado |
+| 4   | Publicar el umbral de precio obsoleto por símbolo en un lugar que el motor pueda leer                                                   | Datos de Mercado |
+| 5   | Confirmar que una posición larga se valora al `bid`. El comentario de `tickSchema` dice que `last` valora                               | Frontend         |
+| 6   | Confirmar `quantityPrecision` del catálogo: el motor acepta los valores actuales de `INSTRUMENTS` sin cambio                            | Datos de Mercado |
+| 7   | Mover al contrato el login (`POST /auth/login`), la respuesta de `GET /account` y el formato de error                                   | Frontend, QA     |
+| 8   | Agregar Postgres al CI para que corran los tests de integración de la API                                                               | QA               |
+| 9   | Publicar en `shared`, junto a `staleAfterMs`, la tolerancia de tick futuro `MAX_FUTURE_SKEW_MS` = 2 s (D-11). Hoy vive solo en el motor | Datos de Mercado |
 
 Hasta que la solicitud 1 esté en el contrato, la base de datos guarda `stale_price` y la API
 responde `no_price` de forma temporal (aprobado por el Gerente el 2026-11-16). La conversión está
