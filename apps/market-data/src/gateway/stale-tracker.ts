@@ -76,12 +76,14 @@ export class StaleTracker {
 
   status(symbol: InstrumentSymbol): SymbolStatus {
     const state = this.states.get(symbol);
-    return { symbol, stale: state?.stale ?? true, ts: state?.changedAt ?? this.now() };
+    const stale = state?.stale ?? true;
+    // D-05: todo opera 24/7; cerrado solo si el precio está obsoleto.
+    return { symbol, stale, marketOpen: !stale, ts: state?.changedAt ?? this.now() };
   }
 
   private change(symbol: InstrumentSymbol, state: State, stale: boolean): void {
     state.stale = stale;
     state.changedAt = this.now();
-    this.onChange({ symbol, stale, ts: state.changedAt });
+    this.onChange({ symbol, stale, marketOpen: !stale, ts: state.changedAt });
   }
 }

@@ -40,7 +40,7 @@ export async function buildApp(options: MarketDataAppOptions = {}): Promise<Mark
   const statuses = new Map<InstrumentSymbol, SymbolStatus>();
   /** Sin estado publicado todavía no hay precio: el símbolo se informa como desactualizado. */
   const statusOf = (symbol: InstrumentSymbol): SymbolStatus =>
-    statuses.get(symbol) ?? { symbol, stale: true, ts: startedAt };
+    statuses.get(symbol) ?? { symbol, stale: true, marketOpen: false, ts: startedAt };
   const server = Fastify({
     logger: options.logLevel ? { level: options.logLevel } : false,
   });
