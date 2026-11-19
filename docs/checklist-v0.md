@@ -111,7 +111,7 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] Reglamento actualizado con D-05, D-08, D-12, D-13 y D-19 — `docs/qa/reglamento-anti-trampa.md` v0.2.
 - [ ] `tests/security/`: cuenta ajena, sesión vencida o alterada y payloads manipulados.
 - [ ] Idempotencia y concurrencia probadas con Postgres.
-- [ ] DEF-001 y DEF-002 vueltos a probar y cerrados.
+- [x] DEF-001 y DEF-002 vueltos a probar y cerrados — `docs/qa/defectos.md` (sección "Cierre"); `tests/properties/engine-defects.test.ts` en verde con `pnpm test`.
 - [ ] E2E con Playwright del flujo completo, en móvil y escritorio.
 - [ ] k6 de 500 conexiones WebSocket: primero en local, luego en staging.
 - [ ] k6 de ráfagas contra `POST /orders`.
