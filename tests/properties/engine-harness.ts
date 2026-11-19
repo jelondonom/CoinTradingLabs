@@ -18,10 +18,8 @@ import {
 } from '../../apps/api/src/engine/index.js';
 
 export const STALE_AFTER_MS = 30_000;
-/**
- * Constantes del oráculo, copiadas de `docs/engine-rules.md` §5 y no del motor: si el motor
- * cambia una sin cambiar las reglas, R1 lo detecta.
- */
+// Constantes del oráculo, copiadas de `docs/engine-rules.md` §5 y no del motor ni de `shared`:
+// si el motor cambia una sin cambiar las reglas, R1 lo detecta.
 /** Fila 4 (D-11): adelanto máximo tolerado de un tick sobre la hora del servidor. */
 export const MAX_FUTURE_SKEW_MS = 2_000;
 /** Fila 6 (D-01): monto mínimo por orden, en centavos. */
@@ -205,7 +203,8 @@ export function toScaled(value: string, scale: number): bigint | null {
   return sign ? -scaled : scaled;
 }
 
-function toScaledOrThrow(value: string, scale: number): bigint {
+/** `toScaled` que lanza en vez de devolver `null`: los generadores nunca deberían producirlo. */
+export function toScaledOrThrow(value: string, scale: number): bigint {
   const scaled = toScaled(value, scale);
   if (scaled === null) throw new Error(`"${value}" no cabe en ${scale} decimales.`);
   return scaled;

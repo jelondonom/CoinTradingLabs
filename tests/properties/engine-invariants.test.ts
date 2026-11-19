@@ -21,6 +21,7 @@ import {
   newSim,
   roundHalfUpToCents,
   toScaled,
+  toScaledOrThrow,
   unrealizedOf,
   MAX_FUTURE_SKEW_MS,
   STALE_AFTER_MS,
@@ -47,13 +48,6 @@ function run(
 
 function expectSame(actual: { toFixed(): string }, expected: { toFixed(): string }): void {
   expect(actual.toFixed()).toBe(expected.toFixed());
-}
-
-/** `toScaled` que lanza en vez de devolver `null`: el generador nunca debería producirlo. */
-function scaledOrThrow(value: string, scale: number): bigint {
-  const result = toScaled(value, scale);
-  if (result === null) throw new Error(`"${value}" fuera de escala ${scale}.`);
-  return result;
 }
 
 describe('invariantes contables del motor', () => {
@@ -157,8 +151,8 @@ describe('ejecución', () => {
           if (result.status !== 'filled') return;
           const { quantityPrecision } = command.instrument;
           const exact =
-            scaledOrThrow(command.quantity, quantityPrecision) *
-            scaledOrThrow(result.price.toFixed(), 8);
+            toScaledOrThrow(command.quantity, quantityPrecision) *
+            toScaledOrThrow(result.price.toFixed(), 8);
           const scale = quantityPrecision + 8;
           // D-01: el redondeo va siempre en contra del participante.
           const cents =
@@ -214,10 +208,10 @@ describe('ejecución', () => {
         // y piso al vender (< 1 centavo).
         const { quantityPrecision } = command.instrument;
         const centUnit = 10n ** BigInt(quantityPrecision + 6);
-        const units = scaledOrThrow(command.quantity, quantityPrecision);
+        const units = toScaledOrThrow(command.quantity, quantityPrecision);
         const spread =
-          units * (scaledOrThrow(command.tick.ask, 8) - scaledOrThrow(command.tick.bid, 8));
-        const cost = scaledOrThrow(buy.notional.minus(sell.notional).toFixed(), 2) * centUnit;
+          units * (toScaledOrThrow(command.tick.ask, 8) - toScaledOrThrow(command.tick.bid, 8));
+        const cost = toScaledOrThrow(buy.notional.minus(sell.notional).toFixed(), 2) * centUnit;
         expect(cost - spread >= 0n).toBe(true);
         expect(cost - spread < 2n * centUnit).toBe(true);
         expect(sim.balance.lte(INITIAL_BALANCE_USD)).toBe(true);

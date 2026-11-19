@@ -71,7 +71,7 @@ describe('DEF-001 (cerrado): el redondeo a centavos por orden creaba dinero', ()
 
   it('G2: el escenario de precio fijo ejecuta compras y ventas, no solo rechazos', () => {
     // Con el mínimo de 10 USD muchas órdenes pequeñas se rechazan: sin esta guardia, la propiedad
-    // anterior podría pasar sin ejecutar casi nada. Mismo generador y misma semilla.
+    // anterior podría pasar sin ejecutar casi nada. Mide el mismo generador con la misma semilla.
     const seen: Record<string, number> = {};
     for (const { instrument, tick, orders } of fc.sample(fixedPriceScenarioArb, RUNS)) {
       const sim = newSim();
