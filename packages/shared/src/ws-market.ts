@@ -24,11 +24,16 @@ export type MarketClientMessage = z.infer<typeof marketClientMessageSchema>;
 
 /**
  * Estado del precio de un símbolo. `stale: true` significa que el último tick está desactualizado
- * porque el proveedor dejó de enviar precios. El umbral por símbolo lo define `apps/market-data`.
+ * porque el proveedor dejó de enviar precios. El umbral por símbolo es `staleAfterMs(symbol)`.
  */
 export const symbolStatusSchema = z.object({
   symbol: symbolSchema,
   stale: z.boolean(),
+  /**
+   * Se puede operar. Todos los símbolos operan 24/7 (D-05): un símbolo está cerrado solo si está
+   * deshabilitado o su precio está obsoleto. Sin calendario de bolsa en V0.1.
+   */
+  marketOpen: z.boolean(),
   /** Momento en que cambió el estado. */
   ts: timestampSchema,
 });

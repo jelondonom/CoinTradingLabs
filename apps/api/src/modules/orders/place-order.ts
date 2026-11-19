@@ -1,7 +1,7 @@
 import type { PlaceOrderRequest } from '@coin/shared';
 import { isUniqueViolation, type Tx } from '../../db/prisma.js';
 import { dec, executeMarketOrder, type EngineTick } from '../../engine/index.js';
-import { notFound } from '../../errors/app-error.js';
+import { invalidRequest, notFound } from '../../errors/app-error.js';
 import type { Order as OrderRow } from '../../generated/prisma/client.js';
 import type { TradingDeps } from '../deps.js';
 
@@ -85,6 +85,10 @@ async function executeInTransaction(
     where: { accountId, symbol: request.symbol, closedAt: null },
   });
 
+  // TEMPORAL (contrato v2, PR del Arquitecto): la orden por monto (D-09) la implementa el Backend.
+  if (request.quantity === undefined) {
+    throw invalidRequest('La orden por monto todavía no está disponible.');
+  }
   const quantity = dec(request.quantity);
   const result = executeMarketOrder({
     now,
