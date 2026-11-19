@@ -58,15 +58,15 @@ del Gerente. Mientras no se decidan, no existen.
 Las validaciones se evalúan en este orden. La primera que falla define el motivo. Una orden
 rechazada se guarda con `status = rejected` y su motivo, y no genera asientos contables.
 
-| Orden | Condición                                                               | Motivo                  |
-| ----- | ----------------------------------------------------------------------- | ----------------------- |
-| 1     | El instrumento está deshabilitado (`tradable = false`)                  | `market_closed`         |
-| 2     | La hora está fuera de la ventana de la competencia `[startsAt, endsAt)` | `market_closed`         |
-| 3     | No hay ningún tick del símbolo                                          | `no_price`              |
-| 4     | El tick es obsoleto: `ahora − tick.ts > umbral del símbolo`             | `stale_price`           |
-| 5     | La cantidad no cumple `quantityPrecision` o `minQuantity`               | `invalid_quantity`      |
-| 6     | Compra: `notional > saldo`                                              | `insufficient_funds`    |
-| 7     | Venta: no hay posición abierta o `cantidad > cantidad de la posición`   | `insufficient_position` |
+| Orden | Condición                                                                 | Motivo                  |
+| ----- | ------------------------------------------------------------------------- | ----------------------- |
+| 1     | El instrumento está deshabilitado (`tradable = false`)                    | `market_closed`         |
+| 2     | La hora está fuera de la ventana de la competencia `[startsAt, endsAt)`   | `market_closed`         |
+| 3     | No hay ningún tick del símbolo                                            | `no_price`              |
+| 4     | El tick es obsoleto: `ahora − tick.ts > umbral` o `tick.ts − ahora > 2 s` | `stale_price`           |
+| 5     | La cantidad no cumple `quantityPrecision` o `minQuantity`                 | `invalid_quantity`      |
+| 6     | Compra: `notional > saldo`                                                | `insufficient_funds`    |
+| 7     | Venta: no hay posición abierta o `cantidad > cantidad de la posición`     | `insufficient_position` |
 
 Notas:
 
@@ -74,6 +74,9 @@ Notas:
   materias primas vienen de contratos que cotizan todos los días a toda hora.
 - **Precio obsoleto**: el motor usa el mismo umbral por símbolo que `market-data` (30 segundos por
   defecto), leído de una sola fuente, para que la pantalla y el motor nunca se contradigan.
+- **Tick del futuro** (D-11, DEF-002): un tick con fecha más de 2 segundos posterior a la hora del
+  servidor también es obsoleto (`MAX_FUTURE_SKEW_MS`). Los 2 segundos toleran relojes un poco
+  desalineados; sin este límite, un tick mal fechado seguiría sirviendo aunque el feed se caiga.
 - **Idempotencia**: si llega una orden con un `clientOrderId` que la cuenta ya usó, se devuelve la
   orden original sin ejecutar nada.
 

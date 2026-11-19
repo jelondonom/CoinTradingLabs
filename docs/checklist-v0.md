@@ -69,7 +69,7 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] `POST /orders` idempotente por `clientOrderId`; ejecución al `ask`/`bid`.
 - [x] `ledger_entries` append-only; su suma coincide con el saldo.
 - [x] `GET /account`.
-- [ ] DEF-002: tick con fecha futura rechazado (D-11).
+- [x] DEF-002: tick con fecha futura rechazado (D-11) — test DEF-002 de `engine-defects.test.ts` en verde con `pnpm test`; QA cierra el defecto.
 - [ ] DEF-001: redondeo en contra del participante y mínimo de 10 USD (D-01).
 - [ ] Límite de peticiones en login y órdenes (D-13).
 - [ ] Tabla de velas (D-18).

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   executeMarketOrder,
+  MAX_FUTURE_SKEW_MS,
   type MarketOrderFilled,
   type MarketOrderInput,
   type MarketOrderResult,
@@ -221,6 +222,15 @@ describe('rechazos', () => {
     expect(executeMarketOrder(input({ tick: atLimit })).status).toBe('filled');
     const stale = { ...atLimit, ts: NOW - 30_001 };
     expect(reason(executeMarketOrder(input({ tick: stale })))).toBe('stale_price');
+  });
+
+  it('stale_price si el tick viene del futuro más de 2 s (DEF-002)', () => {
+    const atLimit = { bid: '60000.00', ask: '60010.00', ts: NOW + MAX_FUTURE_SKEW_MS };
+    expect(executeMarketOrder(input({ tick: atLimit })).status).toBe('filled');
+    const ahead = { ...atLimit, ts: NOW + MAX_FUTURE_SKEW_MS + 1 };
+    expect(reason(executeMarketOrder(input({ tick: ahead })))).toBe('stale_price');
+    const oneHour = { ...atLimit, ts: NOW + 3_600_000 };
+    expect(reason(executeMarketOrder(input({ tick: oneHour })))).toBe('stale_price');
   });
 
   it('invalid_quantity por decimales de más, bajo el mínimo, cero o negativa', () => {
