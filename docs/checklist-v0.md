@@ -52,8 +52,8 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] Redis: `last:{symbol}` y `ticks:{symbol}`.
 - [x] WebSocket público con suscripción por símbolo y límite de 4/s.
 - [x] Mensaje `status` con precio obsoleto y reconexión con backoff.
-- [ ] `staleAfterMs` leído desde `packages/shared` (D-11).
-- [ ] `marketOpen` en `status` según D-05.
+- [x] `staleAfterMs` leído desde `packages/shared` (D-11) — `gateway/stale-tracker.ts` sin copia local; test de umbral por símbolo en `stale-tracker.test.ts`.
+- [x] `marketOpen` en `status` según D-05 — `symbolStatus()` único punto de decisión (abierto salvo precio obsoleto; sin fuente de "deshabilitado" aún, opción A del Gerente); prueba en vivo de 60 s con 31 símbolos.
 - [ ] Velas de 1m persistidas en la tabla del Backend (D-18).
 - [ ] Velas derivadas: 5m, 15m, 1h, 4h y 1d.
 - [ ] Historial desde Binance al arrancar y tras reconectar, sin huecos.
