@@ -17,6 +17,31 @@ jobs:
     name: Lint, test y build
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Mismas imágenes y credenciales de prueba que infra/docker-compose.yml. Los tests de
+    # integración (*.integration.test.ts) se saltan si no encuentran Postgres; aquí deben correr.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: coin
+          POSTGRES_PASSWORD: coin
+          POSTGRES_DB: coin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U coin -d coin"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -26,5 +51,18 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
-      - run: pnpm test
+      - name: Tests con Postgres y Redis
+        shell: bash
+        env:
+          TEST_DATABASE_ADMIN_URL: postgresql://coin:coin@localhost:5432/coin
+        run: pnpm test 2>&1 | tee "$RUNNER_TEMP/test-output.log"
+      # Vitest escribe "N skipped" en el resumen cuando salta un test o una suite completa.
+      - name: Verificar que ningún test quedó saltado
+        shell: bash
+        run: |
+          if grep -nw skipped "$RUNNER_TEMP/test-output.log"; then
+            echo "::error::Hay tests saltados. Los de integración deben correr contra Postgres en el CI."
+            exit 1
+          fi
+          echo "Ningún test quedó saltado."
       - run: pnpm build
