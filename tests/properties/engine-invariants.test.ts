@@ -2,7 +2,7 @@
  * Propiedades contables del motor de trading (`docs/engine-rules.md`, sección 9).
  * Corren contra el motor real. Son deterministas: semilla fija, sin reloj ni red.
  */
-import { INITIAL_BALANCE_USD } from '@coin/shared';
+import { INITIAL_BALANCE_USD, MAX_TICK_FUTURE_MS, MIN_ORDER_USD } from '@coin/shared';
 import fc from 'fast-check';
 import { writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -24,6 +24,7 @@ import {
   toScaledOrThrow,
   unrealizedOf,
   MAX_FUTURE_SKEW_MS,
+  MIN_ORDER_CENTS,
   STALE_AFTER_MS,
   WINDOW,
   type Command,
@@ -335,6 +336,15 @@ describe('generadores', () => {
     ]) {
       expect(seen[key] ?? 0, key).toBeGreaterThanOrEqual(100);
     }
+  });
+});
+
+describe('contrato', () => {
+  it('C1: las constantes del oráculo coinciden con las de `@coin/shared`', () => {
+    // El oráculo copia los valores de `docs/engine-rules.md` para no depender del motor. Si el
+    // contrato cambia uno, este test obliga a revisar las reglas y el oráculo a la vez.
+    expect(MIN_ORDER_CENTS).toBe(BigInt(MIN_ORDER_USD * 100));
+    expect(MAX_FUTURE_SKEW_MS).toBe(MAX_TICK_FUTURE_MS);
   });
 });
 

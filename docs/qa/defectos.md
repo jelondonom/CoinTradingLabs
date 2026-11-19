@@ -13,8 +13,8 @@
 Probado el 2026-11-16 sobre la rama `feat/api-engine-v0` (commit `9dc48f8`). Vuelto a probar el
 mismo día sobre `main` (commit `ed77101`), ya con el motor integrado: los dos seguían abiertos.
 Vueltos a probar el 2026-11-18 sobre la rama `qa/cierre-def-001-def-002`, que reúne la corrección
-de DEF-001 (`37fc65a`), la de DEF-002 (`0fc8d0f`, ya en `main`) y `main` al día: los dos se
-cierran. Detalle en la sección "Cierre" de cada uno.
+de DEF-001 (`37fc65a`, ajustada al contrato v2 en `11bb4c5`), la de DEF-002 (`0fc8d0f`, ya en
+`main`) y `main` al día: los dos se cierran. Detalle en la sección "Cierre" de cada uno.
 
 ## DEF-001: el redondeo a centavos por orden crea dinero
 
@@ -67,9 +67,8 @@ orden, o un límite de órdenes por cuenta. El límite solo reduce el daño; no 
   guardia G2 confirma que ejecuta órdenes: 1.113 compras y 543 ventas, y 529 `below_minimum`.
 - Propiedades E2 (techo y piso), E4 (un ciclo cuesta el spread más menos de 2 centavos) y R1
   (orden de los rechazos con `below_minimum`) en verde. G1: 125 `below_minimum`.
-- Comportamiento temporal, no defecto: hasta que el Backend retire la conversión de
-  `toPublicRejectReason`, la API responde `invalid_quantity` donde la base guarda
-  `below_minimum`.
+- Desde `11bb4c5` el motor lee el mínimo de `MIN_ORDER_USD` (`@coin/shared`) y la API responde
+  `below_minimum` tal cual (`toPublicRejectReason` en `apps/api/src/modules/dto.ts` y su test).
 
 ## DEF-002: un tick con fecha futura nunca se considera obsoleto
 

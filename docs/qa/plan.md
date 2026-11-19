@@ -56,9 +56,8 @@ Son hipótesis. Ninguna es un defecto hasta que un test la confirme.
   `main`, lo vuelve obligatorio; QA lo prueba contra la API en T3.
 - No hay límite de peticiones en `POST /auth/login` ni en `POST /orders`.
 - El WebSocket de mercado es público y no limita conexiones ni suscripciones por cliente.
-- La API responde `no_price` cuando el motivo real es `stale_price`, e `invalid_quantity` cuando
-  es `below_minimum` (temporal, aprobado). El contrato v2 ya tiene los dos motivos: la conversión
-  de `toPublicRejectReason` ya se puede retirar (Backend).
+- La API responde `no_price` cuando el motivo real es `stale_price` (temporal, aprobado; el
+  Backend lo retira en su tarea T7). `below_minimum` ya sale tal cual desde `11bb4c5`.
 - El CI no tiene Postgres: los tests de integración de la API no corren (solicitud 8).
 - `GET /account` valora con el último tick aunque sea obsoleto, sin avisarlo en la respuesta.
 
@@ -72,9 +71,10 @@ del bloqueo de la fila.
 ### 4.1 Motor de trading (Agente Backend)
 
 - **Propiedades** (`tests/properties/`, hechas): 16 propiedades con `fast-check` sobre el motor
-  real, con semilla fija, y 6 casos de regresión de DEF-001 y DEF-002. Cubren las invariantes 1 a
-  5 de `docs/engine-rules.md`, precio de ejecución, redondeo en contra del participante y mínimo
-  de 10 USD (D-01), ticks del futuro (D-11), orden de los rechazos y valoración.
+  real, con semilla fija, 6 casos de regresión de DEF-001 y DEF-002 y un chequeo (C1) de que las
+  constantes del oráculo coinciden con `@coin/shared`. Cubren las invariantes 1 a 5 de
+  `docs/engine-rules.md`, precio de ejecución, redondeo en contra del participante y mínimo de
+  10 USD (D-01), ticks del futuro (D-11), orden de los rechazos y valoración.
 - **Idempotencia y concurrencia** (pendiente): la invariante 6 vive en `place-order.ts` y
   necesita Postgres. Mismo `clientOrderId` repetido, en paralelo y desde dos procesos.
 - **Reconciliación en base** (pendiente): consultas SQL en `tests/audit/` que comparan
@@ -127,7 +127,7 @@ del bloqueo de la fila.
 
 | De               | Qué                                                                                | Para         |
 | ---------------- | ---------------------------------------------------------------------------------- | ------------ |
-| Backend          | Retirar la conversión temporal de motivos de rechazo (el contrato v2 ya los tiene) | R4           |
+| Backend          | Responder `stale_price` tal cual, sin pasarlo a `no_price` (su tarea T7)           | R4           |
 | Backend          | Límite de peticiones en login y órdenes; ruta del ranking                          | R3, R9       |
 | Datos de Mercado | Escritura de `last:{symbol}` en Redis y umbral de obsolescencia en una sola fuente | R4, R10      |
 | Arquitecto       | Postgres en el CI (`clientOrderId` y `stale_price` ya están en el contrato v2)     | R6           |
