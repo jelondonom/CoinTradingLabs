@@ -28,6 +28,10 @@ function authenticate(request: FastifyRequest, deps: TradingDeps): TokenClaims {
 /** Rutas REST de trading: login, órdenes y cuenta. */
 export function registerTradingRoutes(app: FastifyInstance, deps: TradingDeps): void {
   app.post('/auth/login', async (request): Promise<LoginResponse> => {
+    // D-13: todo intento cuenta por IP desde que entra; si sale bien, deja de contar.
+    // Así solo quedan contados los fallidos. Ver `docs/engine-rules.md` §11.
+    const attempt = await deps.rateLimits.startLogin(request.ip);
+
     const body = loginRequestSchema.safeParse(request.body);
     if (!body.success) throw invalidRequest('Envía el código de inscripción en `code`.');
 
@@ -37,6 +41,7 @@ export function registerTradingRoutes(app: FastifyInstance, deps: TradingDeps): 
     });
     if (!user?.account) throw unauthorized('Código de inscripción inválido.');
 
+    await attempt.succeeded();
     const expiresAt = deps.now() + deps.tokenTtlMs;
     return {
       token: signToken(
@@ -50,6 +55,8 @@ export function registerTradingRoutes(app: FastifyInstance, deps: TradingDeps): 
 
   app.post('/orders', async (request, reply) => {
     const claims = authenticate(request, deps);
+    // D-13: cuenta toda petición autenticada, antes de tocar la base o la cola de la cuenta.
+    await deps.rateLimits.consumeOrder(claims.accountId);
     const body = placeOrderRequestSchema.safeParse(request.body);
     if (!body.success) throw invalidRequest(z.prettifyError(body.error));
 

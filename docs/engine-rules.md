@@ -202,7 +202,8 @@ Gerente el 2026-11-18). La conversión está en un solo lugar: `toPublicRejectRe
 ## 11. API REST V0
 
 Todas las respuestas de error tienen la forma `{ "error": { "code", "message" } }`, con los
-códigos `invalid_request` (400), `unauthorized` (401), `not_found` (404) e `internal` (500).
+códigos `invalid_request` (400), `unauthorized` (401), `not_found` (404), `rate_limited` (429)
+e `internal` (500).
 
 | Ruta               | Sesión | Qué hace                                                             |
 | ------------------ | ------ | -------------------------------------------------------------------- |
@@ -219,6 +220,44 @@ códigos `invalid_request` (400), `unauthorized` (401), `not_found` (404) e `int
   un error HTTP: llega con `status = rejected` y su `rejectReason`. Si el `clientOrderId` ya se
   usó, responde 200 con la orden original.
 - Un campo que el cliente no debe enviar (por ejemplo `price`) se ignora.
+
+### Límites de peticiones (D-13)
+
+Los números los propone el Backend y los valida QA (D-13). Ventanas fijas en Redis
+(`apps/api/src/modules/rate-limit/`); la ventana de un día va de medianoche a medianoche UTC.
+Como las ventanas son fijas, en el borde entre dos ventanas se pueden juntar hasta dos límites
+seguidos (por ejemplo, 30 órdenes a las 10:00:59 y otras 30 a las 10:01:00).
+
+| Ruta               | Llave                              | Qué cuenta                         | Límite | Ventana   | Variable                               |
+| ------------------ | ---------------------------------- | ---------------------------------- | ------ | --------- | -------------------------------------- |
+| `POST /auth/login` | IP del cliente (IPv6: prefijo /64) | Solo intentos fallidos (400 y 401) | 100    | 15 min    | `RATE_LIMIT_LOGIN_FAILURES_PER_15_MIN` |
+| `POST /orders`     | `accountId` del token              | Toda petición autenticada          | 30     | 1 min     | `RATE_LIMIT_ORDERS_PER_MINUTE`         |
+| `POST /orders`     | `accountId` del token              | Toda petición autenticada          | 1.000  | 1 día UTC | `RATE_LIMIT_ORDERS_PER_DAY`            |
+
+- **Respuesta**: 429 con `{ "error": { "code": "rate_limited", "message" } }` y la cabecera
+  `Retry-After` en segundos hasta el fin de la ventana. El código está en el contrato v2.
+- **Login**: todo intento cuenta desde que entra al handler, de forma atómica, y si sale bien se
+  descuenta. Así quedan contados solo los fallidos y una ráfaga simultánea no se salta el límite.
+  El costo es que, en una ráfaga, los intentos en curso ocupan cupo durante unos milisegundos. Un
+  cuerpo que Fastify rechaza antes del handler (JSON inválido) responde 400 y no cuenta; es barato
+  porque no llega a la base. Con el límite agotado, la IP recibe 429 en todo login hasta el fin de
+  la ventana, aunque traiga un código válido. Un login exitoso no reinicia el contador: si lo
+  hiciera, un participante podría alternar su código con intentos al azar. Una IPv6 se agrupa por
+  su prefijo /64: quien controla una /64 podría estrenar dirección en cada intento. Los códigos tienen unos 49 bits
+  (`enrollment-code.ts`): con 100 intentos cada 15 minutos, la probabilidad de que una IP acierte
+  alguno de 800 códigos en 30 días es de unos 3 × 10⁻⁷. Los 100 dejan margen para los errores de
+  tipeo de muchos asistentes detrás de una misma IP (wifi del evento, CGNAT).
+- **Órdenes**: cuentan las ejecutadas, las rechazadas por el motor, las repetidas por
+  `clientOrderId` y las mal formadas. Una petición sin sesión (401) no cuenta. Lo que se niega por
+  límite no toca la base ni la cola de la cuenta. Una petición negada por el límite de un minuto
+  no gasta el cupo del día. El tope diario limita el peor caso de la base a 800 × 1.000 × 30 =
+  24 millones de órdenes.
+- **Redis caído**: la petición pasa (fail-open) y queda un warning en el log, como máximo uno cada
+  10 s. Sin Redis tampoco hay
+  precios, así que una orden igual se rechaza con `no_price`.
+- **Proxy**: detrás de Caddy, `API_TRUST_PROXY` debe tener la IP o la subred del proxy. Sin eso,
+  todas las peticiones llegan con la IP de Caddy y el límite de login se vuelve global. Solo se
+  lee `X-Forwarded-For` de las direcciones de esa lista: un cliente directo no puede falsear su IP.
 
 ## 12. Fuera de V0
 

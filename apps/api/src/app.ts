@@ -21,6 +21,11 @@ export type AppOptions = {
   checkTimeoutMs?: number;
   /** Dependencias de trading. Sin ellas solo se sirven `/health` y el WebSocket. */
   trading?: TradingDeps;
+  /**
+   * IP o CIDR del proxy en el que se confía, separadas por coma (`API_TRUST_PROXY`). Detrás de
+   * Caddy hace falta para que `request.ip` sea la del cliente y no la del proxy.
+   */
+  trustProxy?: string | false;
 };
 
 async function runCheck(check: HealthCheck, timeoutMs: number): Promise<'up' | 'down'> {
@@ -41,6 +46,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const { checks, checkTimeoutMs = 2000 } = options;
   const app = Fastify({
     logger: options.logLevel ? { level: options.logLevel } : false,
+    trustProxy: options.trustProxy ?? false,
   });
 
   await app.register(websocket);
@@ -49,6 +55,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     if (error instanceof AppError) {
       return reply
         .code(error.statusCode)
+        .headers(error.headers)
         .send({ error: { code: error.code, message: error.message } });
     }
     const statusCode = (error as { statusCode?: number }).statusCode;

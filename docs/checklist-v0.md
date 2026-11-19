@@ -71,7 +71,7 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] `GET /account`.
 - [x] DEF-002: tick con fecha futura rechazado (D-11) — PR #10 (`0fc8d0f`); QA cierra el defecto.
 - [x] DEF-001: redondeo en contra del participante y mínimo de 10 USD (D-01) — tests DEF-001 de `engine-defects.test.ts` y `market-order.test.ts` en verde con `pnpm test`; QA cierra el defecto.
-- [ ] Límite de peticiones en login y órdenes (D-13).
+- [x] Límite de peticiones en login y órdenes (D-13) — tests de `rate-limiter.test.ts`, `counter-store.integration.test.ts` y `trading.integration.test.ts` (límites D-13) en verde; QA valida los números.
 - [ ] Tabla de velas (D-18).
 - [ ] Login con cookie `httpOnly` y WS de cuenta autenticado (D-04).
 - [ ] Orden por monto (D-09) y `POST /positions/:id/close`.
