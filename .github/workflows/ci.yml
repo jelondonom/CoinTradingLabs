@@ -28,20 +28,22 @@ jobs:
           POSTGRES_DB: coin
         ports:
           - 5432:5432
+        # -h localhost: durante la inicialización la imagen arranca un servidor temporal sin TCP;
+        # por el socket pg_isready lo daría por listo antes de tiempo.
         options: >-
-          --health-cmd "pg_isready -U coin -d coin"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
+          --health-cmd "pg_isready -h localhost -U coin -d coin"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 30
       redis:
         image: redis:8-alpine
         ports:
           - 6379:6379
         options: >-
           --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 30
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

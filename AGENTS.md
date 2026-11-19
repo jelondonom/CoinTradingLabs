@@ -17,7 +17,9 @@ Frontend: Lightweight Charts, Zustand y Tailwind CSS (ver `docs/adr/0003-libreri
 ## Comandos
 
 - `pnpm dev`: arranca Postgres, Redis y las tres apps.
-- `pnpm test`: tests de todo el monorepo. Deben pasar antes de cada commit.
+- `pnpm test`: tests de todo el monorepo. Deben pasar antes de cada commit. En el CI corren con
+  PostgreSQL y Redis, y ningún test puede quedar `skipped`: el CI falla. Para un defecto conocido
+  usa `it.fails`, no `it.skip`.
 - `pnpm lint`: ESLint, Prettier y `tsc --noEmit`. Debe pasar antes de cada PR.
 - `pnpm build`: compila todo para producción.
 
