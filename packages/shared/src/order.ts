@@ -60,8 +60,13 @@ export const orderSchema = z.object({
   symbol: symbolSchema,
   side: orderSideSchema,
   type: orderTypeSchema,
-  /** Cantidad ejecutada o pedida, en unidades del activo. */
-  quantity: quantitySchema,
+  /**
+   * Cantidad ejecutada o pedida, en unidades del activo. Puede ser 0 solo en una orden por monto
+   * rechazada cuyo monto, redondeado hacia abajo con `quantityPrecision`, no alcanza una unidad.
+   */
+  quantity: z.number().nonnegative().finite(),
+  /** Monto pedido en USD si la orden fue por monto (D-09); `null` si fue por cantidad. */
+  amountUsd: z.number().positive().finite().nullable().default(null),
   status: orderStatusSchema,
   filledPrice: priceSchema.nullable(),
   rejectReason: orderRejectReasonSchema.nullable(),

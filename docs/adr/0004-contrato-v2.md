@@ -24,7 +24,8 @@ Frontend tenían copias locales de esas formas.
 Las constantes de ruta del contrato (`LOGIN_PATH`, `CANDLES_PATH`, …) son rutas internas.
 
 **Sesión (D-04).** `POST /auth/login` recibe `{ code }` y responde `{ accountId, expiresAt }` con
-`Set-Cookie: coin_session` (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`). El token nunca va
+`Set-Cookie: coin_session` (`HttpOnly`, `SameSite=Strict`, `Path=/`; `Secure` en staging y
+producción, no en `http://localhost`, donde WebKit la descartaría). El token nunca va
 en el cuerpo ni en `localStorage`. `POST /auth/logout` borra la cookie (204). El WS de cuenta se
 autentica con la misma cookie al conectar, sin mensaje `auth`; el servidor valida `Origin` y
 cierra con `4401` si la sesión no es válida. `SameSite=Strict` y el origen único cubren CSRF.
@@ -37,7 +38,8 @@ cliente recalcula el P&L no realizado con los ticks.
 **Órdenes (D-09, D-01).** `quantity` o `amountUsd`, exactamente uno. `clientOrderId` (UUID)
 obligatorio. `MIN_ORDER_USD = 10` lo valida el servidor con `below_minimum`, no el esquema.
 `POST /positions/:id/close` recibe `{ clientOrderId }` y vende la posición completa; responde la
-orden. Nuevos motivos de rechazo: `below_minimum` y `stale_price`.
+orden. Nuevos motivos de rechazo: `below_minimum` y `stale_price`. `Order` suma `amountUsd`
+(monto pedido o `null`) y `quantity` admite 0 solo en una orden por monto rechazada.
 
 **Errores.** `{ error: { code, message } }`. Los códigos (`API_ERROR_CODES`) incluyen todos los
 motivos de rechazo más `validation_error`, `unauthorized`, `not_found`, `rate_limited` e

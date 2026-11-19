@@ -10,8 +10,10 @@ export const LOGIN_PATH = '/auth/login';
 export const LOGOUT_PATH = '/auth/logout';
 
 /**
- * Cookie de sesión: `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`. Un solo origen
- * (Caddy en producción, Vite en desarrollo), así que la cookie también viaja en el WS de cuenta.
+ * Cookie de sesión: `HttpOnly`, `SameSite=Strict`, `Path=/` y `Secure` en staging y producción
+ * (HTTPS). En desarrollo, sobre `http://localhost`, va sin `Secure`: WebKit la descartaría.
+ * Un solo origen (Caddy en producción, Vite en desarrollo), así que la cookie también viaja en el
+ * WS de cuenta.
  */
 export const SESSION_COOKIE_NAME = 'coin_session';
 

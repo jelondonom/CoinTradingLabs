@@ -41,6 +41,12 @@ export const CANDLES_PATH = '/candles';
 export const CANDLES_DEFAULT_LIMIT = 500;
 export const CANDLES_MAX_LIMIT = 1000;
 
+/** Marca de tiempo en la query string. Un valor vacío (`from=`) cuenta como no enviado. */
+const queryTimestampSchema = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.coerce.number().pipe(timestampSchema).optional(),
+);
+
 /**
  * Parámetros de `GET /candles` (query string, por eso se convierten a número).
  * Devuelve las últimas `limit` velas con `openTime` entre `from` y `to`, ambos incluidos.
@@ -50,8 +56,8 @@ export const candlesQuerySchema = z
   .object({
     symbol: symbolSchema,
     interval: candleIntervalSchema,
-    from: z.coerce.number().pipe(timestampSchema).optional(),
-    to: z.coerce.number().pipe(timestampSchema).optional(),
+    from: queryTimestampSchema,
+    to: queryTimestampSchema,
     limit: z.coerce.number().int().min(1).max(CANDLES_MAX_LIMIT).default(CANDLES_DEFAULT_LIMIT),
   })
   .refine((q) => q.from === undefined || q.to === undefined || q.from <= q.to, {

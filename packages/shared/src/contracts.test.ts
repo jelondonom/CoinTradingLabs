@@ -62,6 +62,7 @@ const order = {
   side: 'buy',
   type: 'market',
   quantity: 0.5,
+  amountUsd: null,
   status: 'filled',
   filledPrice: 60_000,
   rejectReason: null,
@@ -299,6 +300,21 @@ describe('contrato v2', () => {
       ).toBe(false);
     });
 
+    it('la orden guarda el monto pedido y admite cantidad 0 solo para rechazos por monto', () => {
+      expect(orderSchema.parse(order).amountUsd).toBeNull();
+      const rejected = {
+        ...order,
+        quantity: 0,
+        amountUsd: 0.3,
+        status: 'rejected',
+        filledPrice: null,
+        filledAt: null,
+        rejectReason: 'below_minimum',
+      };
+      expect(orderSchema.parse(rejected)).toEqual(rejected);
+      expect(orderSchema.safeParse({ ...order, quantity: -1 }).success).toBe(false);
+    });
+
     it('el mínimo de 10 USD lo aplica el servidor con below_minimum, no el esquema', () => {
       expect(MIN_ORDER_USD).toBe(10);
       expect(placeOrderRequestSchema.safeParse({ ...base, amountUsd: 5 }).success).toBe(true);
@@ -388,6 +404,12 @@ describe('contrato v2', () => {
       );
       expect(candlesQuerySchema.safeParse({ ...query, from: 'ayer' }).success).toBe(false);
       expect(candlesQuerySchema.safeParse({ ...query, interval: '2h' }).success).toBe(false);
+    });
+
+    it('un from o to vacío cuenta como no enviado', () => {
+      expect(
+        candlesQuerySchema.parse({ symbol: 'BTCUSD', interval: '1m', from: '', to: '' }),
+      ).toEqual({ symbol: 'BTCUSD', interval: '1m', limit: CANDLES_DEFAULT_LIMIT });
     });
 
     it('respuesta con símbolo, intervalo y velas', () => {
