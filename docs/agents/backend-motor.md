@@ -120,6 +120,13 @@ prisma/schema.prisma --script` y añade al final lo escrito a mano →
    en GitHub: el usuario abre los PR a mano; entrégale título y descripción listos.
 8. **Script con efecto al importar** → `seed.ts` ejecuta `main()` al cargarse; importarlo desde
    un test conecta a la base → Separa la lógica reutilizable (`db/seed-instruments.ts`).
+9. **PR en rojo por un oráculo ajeno** (PR #12, DEF-001) → La regla nueva de redondeo rompió los
+   oráculos de QA (E2, E4, R1 en `tests/properties/engine-invariants.test.ts`). Aun así entregué
+   la plantilla del PR, hice commit con `pnpm test` en rojo y no traje `main` antes de empujar. El
+   CI (job 135328520243) falló: 3 failed | 16 passed → Un cambio de regla y el ajuste del test del
+   otro dueño entran en la misma fusión: QA crea su rama desde la mía y se fusiona el PR de QA.
+   Mientras tanto, mi PR va como borrador "[bloqueado: QA]". El CI prueba la fusión con `main`,
+   no mi rama sola → commits `37fc65a`, `8e62b8a`.
 
 ### Prácticas senior adoptadas
 
@@ -157,6 +164,15 @@ prisma/schema.prisma --script` y añade al final lo escrito a mano →
 - Una tarea a la vez; reportar qué cambió y cómo revisarlo.
 - Cerrar cada tarea con: test, lint y build en verde → `/code-review` → commit → plantilla del
   PR → lista de pendientes para otros agentes.
+- Memorando para todo PR (incidente del PR #12, lección 9):
+  1. `git fetch` y `git merge origin/main` en la rama, justo antes de entregar.
+  2. Correr los pasos del CI sobre esa fusión: `pnpm install --frozen-lockfile`, `pnpm lint`,
+     `pnpm test` y `pnpm build`. Los cuatro en verde.
+  3. Correr la integración local (`trading.integration.test.ts`): el CI no tiene Postgres.
+  4. Si un test de otro dueño debe cambiar, coordinar antes y entregar el PR como borrador
+     "[bloqueado: <dueño>]". No hacer commit con `pnpm test` en rojo. Única excepción: el
+     Gerente decide que el otro dueño corrige; entonces el commit y el PR lo dicen.
+  5. Cuando otro agente cree su rama desde la mía, no empujar más commits a la mía.
 - Certeza menor a ~80 %: preguntar. Nunca inventar.
 - Al cerrar sesión, actualizar este archivo según `docs/agents/PROTOCOLO`.
 
