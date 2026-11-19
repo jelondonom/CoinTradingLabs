@@ -2,10 +2,10 @@ import { orderRejectReasonSchema } from '@coin/shared';
 import { describe, expect, it } from 'vitest';
 import { toPublicRejectReason } from './dto.js';
 
-describe('toPublicRejectReason (temporal hasta el contrato v2)', () => {
-  it('informa stale_price como no_price y below_minimum como invalid_quantity', () => {
+describe('toPublicRejectReason', () => {
+  it('below_minimum sale tal cual (contrato v2); stale_price sale como no_price hasta T7', () => {
+    expect(toPublicRejectReason('below_minimum')).toBe('below_minimum');
     expect(toPublicRejectReason('stale_price')).toBe('no_price');
-    expect(toPublicRejectReason('below_minimum')).toBe('invalid_quantity');
   });
 
   it('todo motivo de la base sale como un motivo válido del contrato', () => {

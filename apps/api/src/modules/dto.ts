@@ -21,14 +21,12 @@ export function toNumber(value: { toString(): string }): number {
 }
 
 /**
- * TEMPORAL: el contrato v1 no tiene `stale_price` ni `below_minimum`, así que hacia afuera se
- * informan como `no_price` e `invalid_quantity`. La base guarda el motivo real. Se elimina con
- * el contrato v2 (solicitudes 1 y 10 de `docs/engine-rules.md`).
+ * TEMPORAL hasta la tarea T7: `stale_price` sale como `no_price`. El contrato v2 ya lo admite,
+ * pero el cambio hacia afuera es parte de T7. `below_minimum` sale tal cual desde el contrato v2.
+ * La base guarda siempre el motivo real.
  */
 export function toPublicRejectReason(reason: DbRejectReason): OrderRejectReason {
-  if (reason === 'stale_price') return 'no_price';
-  if (reason === 'below_minimum') return 'invalid_quantity';
-  return reason;
+  return reason === 'stale_price' ? 'no_price' : reason;
 }
 
 export function toOrderDto(row: OrderRow): Order {
