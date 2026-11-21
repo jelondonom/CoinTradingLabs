@@ -393,6 +393,44 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
     expect(await expectLedgerMatchesBalance(trader.accountId)).toBe('100000.00');
   });
 
+  it('DEF-003: una cantidad que no cabe en la columna responde 422, sin orden, y queda auditada', async () => {
+    const trader = await newTrader();
+    setBtc('60000.00', '60010.00');
+    // JSON escrito tal cual, para que la cantidad llegue con su notación (por ejemplo `1e-30`).
+    const raw = (quantity: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/orders',
+        headers: { ...trader.headers, 'content-type': 'application/json' },
+        payload: `{"symbol":"BTCUSD","side":"buy","type":"market","quantity":${quantity},"clientOrderId":"${randomUUID()}"}`,
+      });
+
+    for (const quantity of ['1e-30', '4e-9', '1e20', '1e21']) {
+      const response = await raw(quantity);
+      expect(response.statusCode, quantity).toBe(422);
+      expect(response.json().error.code).toBe('invalid_quantity');
+    }
+    expect(await db.order.count({ where: { accountId: trader.accountId } })).toBe(0);
+    expect(await expectLedgerMatchesBalance(trader.accountId)).toBe('100000.00');
+
+    const refused = await db.auditLog.findMany({
+      where: { accountId: trader.accountId, action: 'order.refused' },
+      orderBy: { id: 'asc' },
+    });
+    expect(refused.every((entry) => entry.entityType === 'order_request')).toBe(true);
+    expect(refused.map((entry) => (entry.payload as { quantity: string }).quantity)).toEqual([
+      '1e-30',
+      '4e-9',
+      '100000000000000000000',
+      '1e+21',
+    ]);
+
+    // 1e19 sí cabe: llega al motor, que la rechaza por saldo y la guarda como siempre.
+    const fits = await raw('1e19');
+    expect(fits.statusCode).toBe(201);
+    expect(fits.json()).toMatchObject({ status: 'rejected', rejectReason: 'insufficient_funds' });
+  });
+
   describe('límites de peticiones (D-13)', () => {
     // App aparte, con límites chicos, su propio reloj y su propio almacén: no afecta a los
     // demás tests. Cada caso usa IP y cuenta propias.

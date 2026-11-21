@@ -71,6 +71,7 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] `GET /account`.
 - [x] DEF-002: tick con fecha futura rechazado (D-11) — PR #10 (`0fc8d0f`); QA cerró el defecto el 2026-11-18 (`docs/qa/defectos.md`).
 - [x] DEF-001: redondeo en contra del participante y mínimo de 10 USD (D-01) — PR #12 y PR #15 (ajuste de QA a E2, E4 y R1); QA cerró el defecto el 2026-11-18 (`docs/qa/defectos.md`).
+- [x] DEF-003: una cantidad que no cabe en `orders.quantity` responde 422 `invalid_quantity`, sin orden y auditada — `tests/security/def-003.integration.test.ts` (ya `it`) y el test DEF-003 de `trading.integration.test.ts` en verde; QA cierra el defecto.
 - [x] Límite de peticiones en login y órdenes (D-13) — tests de `rate-limiter.test.ts`, `counter-store.integration.test.ts` y `trading.integration.test.ts` (límites D-13) en verde; QA valida los números.
 - [x] Tabla de velas (D-18) — migración `20261121000000_candles`; tests de `candles.integration.test.ts` en verde; contrato con Datos en `apps/api/prisma/README.md`.
 - [ ] Login con cookie `httpOnly` y WS de cuenta autenticado (D-04).
