@@ -1,13 +1,15 @@
 import { placeOrderRequestSchema } from '@coin/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { invalidRequest, unauthorized } from '../errors/app-error.js';
+import { dec } from '../engine/index.js';
+import { invalidQuantity, invalidRequest, unauthorized } from '../errors/app-error.js';
 import { getAccountView } from './accounts/get-account.js';
 import { hashEnrollmentCode } from './auth/enrollment-code.js';
 import { signToken, verifyToken, type TokenClaims } from './auth/token.js';
 import type { TradingDeps } from './deps.js';
 import { toOrderDto } from './dto.js';
 import { placeOrder } from './orders/place-order.js';
+import { fitsQuantityColumn, recordRefusedOrder } from './orders/quantity-column.js';
 
 /**
  * Contrato de login. Vive aquí hasta que el Arquitecto lo mueva a `@coin/shared`
@@ -59,6 +61,26 @@ export function registerTradingRoutes(app: FastifyInstance, deps: TradingDeps): 
     await deps.rateLimits.consumeOrder(claims.accountId);
     const body = placeOrderRequestSchema.safeParse(request.body);
     if (!body.success) throw invalidRequest(z.prettifyError(body.error));
+
+    // DEF-003: una cantidad que no cabe en `orders.quantity` no se puede guardar ni como orden
+    // rechazada. Se responde 422 sin orden y queda el intento en el log y en `audit_logs`. Va
+    // fuera de la transacción de la orden: si no, el 422 revertiría también la auditoría.
+    const { quantity } = body.data;
+    if (quantity !== undefined && !fitsQuantityColumn(dec(quantity))) {
+      request.log.warn(
+        { accountId: claims.accountId, quantity: String(quantity) },
+        'orden rechazada sin guardar: la cantidad no cabe en orders.quantity (DEF-003)',
+      );
+      await recordRefusedOrder(deps.db, {
+        accountId: claims.accountId,
+        userId: claims.userId,
+        request: body.data,
+        now: deps.now(),
+      });
+      throw invalidQuantity(
+        'La cantidad tiene más decimales o dígitos de los que se pueden registrar (máximo 8 decimales).',
+      );
+    }
 
     const { order, replayed } = await placeOrder(deps, claims.accountId, body.data);
     // 201 si la orden se creó ahora; 200 si es la repetición de un `clientOrderId` ya usado.

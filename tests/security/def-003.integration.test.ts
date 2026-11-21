@@ -64,12 +64,9 @@ describe.skipIf(!databaseUrl)('DEF-003 contra Postgres', () => {
     expect((await buy('0.01')).statusCode).toBe(201);
   });
 
-  it.fails(
-    'DEF-003: una cantidad que no cabe en DECIMAL(28,8) se responde sin error 500',
-    async () => {
-      for (const quantity of ['1e-30', '4e-9', '1e20', '1e21']) {
-        expect((await buy(quantity)).statusCode, `quantity ${quantity}`).toBeLessThan(500);
-      }
-    },
-  );
+  it('DEF-003: una cantidad que no cabe en DECIMAL(28,8) se responde sin error 500', async () => {
+    for (const quantity of ['1e-30', '4e-9', '1e20', '1e21']) {
+      expect((await buy(quantity)).statusCode, `quantity ${quantity}`).toBeLessThan(500);
+    }
+  });
 });
