@@ -45,7 +45,7 @@ del congreso.
 | R12 | Sesión robada o compartida: token de 7 días sin revocación  | P1        | `tests/security/`                     | Por verificar                   |
 | R13 | Explotar el gap al abrir la ventana de la competencia       | P1        | Propiedades con reloj controlado      | Parcial (R2 de las propiedades) |
 | R14 | Flujo completo roto en móvil                                | P1        | Playwright con emulación de móvil     | Sin flujo de órdenes en la web  |
-| R15 | Dependencias vulnerables                                    | P2        | `pnpm audit`                          | Pendiente                       |
+| R15 | Dependencias vulnerables                                    | P2        | `pnpm audit`                          | 1 alta y 1 moderada, solo dev   |
 | R16 | Cabeceras, CORS y TLS mal configurados                      | P2        | OWASP ZAP contra staging              | Sin staging                     |
 
 ### Riesgos vistos al leer el código, todavía sin probar
@@ -143,19 +143,22 @@ del bloqueo de la fila.
 
 ## 6. Lo que QA necesita de cada agente
 
-| De               | Qué                                                                                     | Para         |
-| ---------------- | --------------------------------------------------------------------------------------- | ------------ |
-| Backend          | Responder `stale_price` tal cual, sin pasarlo a `no_price` (su tarea T7)                | R4           |
-| Backend          | Usar `staleAfterMs(symbol)` y `MAX_TICK_FUTURE_MS` de `@coin/shared` en las órdenes     | R4, R10      |
-| Backend          | Ruta del ranking (el límite de peticiones ya está en `main`, PR #17)                    | R3           |
-| Backend          | Corregir DEF-003: una cantidad que no cabe en `DECIMAL(28,8)` no debe dar 500           | R1           |
-| Backend          | Corregir DEF-004: el login debe usar `loginRequestSchema` de `@coin/shared` (D-04)      | R12          |
-| Backend          | Con D-09, guardar una orden por monto rechazada con `quantity = 0` sin violar el CHECK  | R1           |
-| Datos de Mercado | Escritura de `last:{symbol}` en Redis y umbral de obsolescencia en una sola fuente      | R4, R10      |
-| Arquitecto       | Dividir el ítem de `tests/security/` del checklist: payloads (fase 1) y sesión (fase 2) | R5, R12      |
-| Arquitecto       | Decidir si `limit=` vacío en `GET /candles` toma el valor por defecto, como `from=`     | —            |
-| Arquitecto       | Entorno de staging con datos sintéticos, k6 disponible y respaldos                      | R7, R11, R16 |
-| Frontend         | Flujo de órdenes en la web y atributos `data-testid` estables                           | R14          |
+| De               | Qué                                                                                                                                | Para         |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Backend          | Responder `stale_price` tal cual, sin pasarlo a `no_price` (su tarea T7)                                                           | R4           |
+| Backend          | Usar `staleAfterMs(symbol)` y `MAX_TICK_FUTURE_MS` de `@coin/shared` en las órdenes                                                | R4, R10      |
+| Backend          | Ruta del ranking (el límite de peticiones ya está en `main`, PR #17)                                                               | R3           |
+| Backend          | Corregir DEF-003: una cantidad que no cabe en `DECIMAL(28,8)` no debe dar 500                                                      | R1           |
+| Backend          | Corregir DEF-004: el login debe usar `loginRequestSchema` de `@coin/shared` (D-04)                                                 | R12          |
+| Backend          | Con D-09, guardar una orden por monto rechazada con `quantity = 0` sin violar el CHECK                                             | R1           |
+| Backend          | Alerta alta de `effect` (vía la CLI de Prisma): override `>= 3.22.1` con el Arquitecto, o aceptación del Gerente (`audit-v0.1.md`) | R15          |
+| Datos de Mercado | Escritura de `last:{symbol}` en Redis y umbral de obsolescencia en una sola fuente                                                 | R4, R10      |
+| Arquitecto       | Dividir el ítem de `tests/security/` del checklist: payloads (fase 1) y sesión (fase 2)                                            | R5, R12      |
+| Arquitecto       | Decidir si `limit=` vacío en `GET /candles` toma el valor por defecto, como `from=`                                                | —            |
+| Arquitecto       | Entorno de staging con datos sintéticos, k6 disponible y respaldos                                                                 | R7, R11, R16 |
+| Arquitecto       | Actualizar `typescript-eslint` a 8.73.0 (cierra la alerta moderada de `minimatch`)                                                 | R15          |
+| Arquitecto       | Cuando no queden altas, `pnpm audit --audit-level high` en el CI                                                                   | R15          |
+| Frontend         | Flujo de órdenes en la web y atributos `data-testid` estables                                                                      | R14          |
 
 ## 7. Decisiones del Gerente
 
