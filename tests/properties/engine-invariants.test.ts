@@ -2,7 +2,7 @@
  * Propiedades contables del motor de trading (`docs/engine-rules.md`, sección 9).
  * Corren contra el motor real. Son deterministas: semilla fija, sin reloj ni red.
  */
-import { INITIAL_BALANCE_USD, MAX_TICK_FUTURE_MS, MIN_ORDER_USD } from '@coin/shared';
+import { INITIAL_BALANCE_USD, ORDER_REJECT_REASONS } from '@coin/shared';
 import fc from 'fast-check';
 import { writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -16,6 +16,7 @@ import {
   firstBuyArb,
   floorToCents,
   happySequenceArb,
+  isStaleTick,
   ledgerSum,
   materialize,
   newSim,
@@ -23,9 +24,6 @@ import {
   toScaled,
   toScaledOrThrow,
   unrealizedOf,
-  MAX_FUTURE_SKEW_MS,
-  MIN_ORDER_CENTS,
-  STALE_AFTER_MS,
   WINDOW,
   type Command,
   type Intent,
@@ -245,9 +243,8 @@ describe('rechazos', () => {
           const blocked =
             !command.tradable ||
             command.tick === null ||
-            command.tick.ageMs > STALE_AFTER_MS ||
-            // Tick del futuro, más de 2 s (D-11, DEF-002).
-            -command.tick.ageMs > MAX_FUTURE_SKEW_MS ||
+            // Viejo para su símbolo o del futuro, más de 2 s (D-11, DEF-002).
+            isStaleTick(command.instrument.symbol, command.tick.ageMs) ||
             command.now < WINDOW.startsAt ||
             command.now >= WINDOW.endsAt;
           if (blocked) expect(result.status).toBe('rejected');
@@ -257,12 +254,13 @@ describe('rechazos', () => {
     );
   });
 
-  it('R3: una orden rechazada no devuelve ningún efecto contable', () => {
+  it('R3: una orden rechazada no devuelve efecto contable y su motivo está en el contrato', () => {
     fc.assert(
       fc.property(anySequenceArb, (commands) => {
         run(commands, (_sim, _command, result) => {
           if (result.status === 'rejected') {
             expect(Object.keys(result).sort()).toEqual(['reason', 'status']);
+            expect(ORDER_REJECT_REASONS).toContain(result.reason);
           }
         });
       }),
@@ -320,31 +318,18 @@ describe('generadores', () => {
       }
     }
     writeCoverage(seen);
+    // Cada motivo de rechazo del contrato: si `ORDER_REJECT_REASONS` agrega uno, esta guardia lo
+    // exige hasta que los generadores lo produzcan.
     for (const key of [
       'buy',
       'partialSell',
       'close',
-      'market_closed',
-      'no_price',
-      'stale_price',
-      'invalid_quantity',
-      'below_minimum',
-      'insufficient_funds',
-      'insufficient_position',
+      ...ORDER_REJECT_REASONS,
       'futureTickFilled',
       'futureTickStale',
     ]) {
       expect(seen[key] ?? 0, key).toBeGreaterThanOrEqual(100);
     }
-  });
-});
-
-describe('contrato', () => {
-  it('C1: las constantes del oráculo coinciden con las de `@coin/shared`', () => {
-    // El oráculo copia los valores de `docs/engine-rules.md` para no depender del motor. Si el
-    // contrato cambia uno, este test obliga a revisar las reglas y el oráculo a la vez.
-    expect(MIN_ORDER_CENTS).toBe(BigInt(MIN_ORDER_USD * 100));
-    expect(MAX_FUTURE_SKEW_MS).toBe(MAX_TICK_FUTURE_MS);
   });
 });
 

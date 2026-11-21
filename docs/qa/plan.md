@@ -71,10 +71,11 @@ del bloqueo de la fila.
 ### 4.1 Motor de trading (Agente Backend)
 
 - **Propiedades** (`tests/properties/`, hechas): 16 propiedades con `fast-check` sobre el motor
-  real, con semilla fija, 6 casos de regresión de DEF-001 y DEF-002 y un chequeo (C1) de que las
-  constantes del oráculo coinciden con `@coin/shared`. Cubren las invariantes 1 a 5 de
-  `docs/engine-rules.md`, precio de ejecución, redondeo en contra del participante y mínimo de
-  10 USD (D-01), ticks del futuro (D-11), orden de los rechazos y valoración.
+  real, con semilla fija, y 6 casos de regresión de DEF-001 y DEF-002. El monto mínimo, los
+  umbrales de precio obsoleto por símbolo, la tolerancia de tick futuro y los motivos de rechazo
+  vienen de `@coin/shared`, sin copias. Cubren las invariantes 1 a 5 de `docs/engine-rules.md`,
+  precio de ejecución, redondeo en contra del participante y mínimo de 10 USD (D-01), ticks del
+  futuro (D-11), orden de los rechazos y valoración.
 - **Idempotencia y concurrencia** (pendiente): la invariante 6 vive en `place-order.ts` y
   necesita Postgres. Mismo `clientOrderId` repetido, en paralelo y desde dos procesos.
 - **Reconciliación en base** (pendiente): consultas SQL en `tests/audit/` que comparan
