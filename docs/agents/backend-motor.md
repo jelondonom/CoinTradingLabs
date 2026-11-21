@@ -155,6 +155,9 @@ prisma/schema.prisma --script` y añade al final lo escrito a mano →
 - Consumes de Datos de Mercado: `SET last:{symbol}` sin vencimiento con el tick del contrato en
   JSON; `ts` es la hora de recepción en `market-data` (`gateway/redis-tick-publisher.ts`).
 - Entregas a Frontend y QA: `POST /auth/login`, `POST /orders`, `GET /account` (`docs/engine-rules.md` §11).
+- Entregas a Datos de Mercado: la tabla `candles` (D-18). Su contrato y sus 6 reglas de uso,
+  acordados el 2026-11-21, están en `apps/api/prisma/README.md`. Única excepción: Datos lee
+  `instruments.symbol` y `tradable` cada 30 s.
 - Entregas al Arquitecto para el despliegue (verificado en el código el 2026-11-20):
   - Arranque: `pnpm --filter @coin/api build` y `node dist/index.js`. Escucha en
     `API_HOST:API_PORT` (por defecto `0.0.0.0:3000`) y cierra limpio con SIGTERM.

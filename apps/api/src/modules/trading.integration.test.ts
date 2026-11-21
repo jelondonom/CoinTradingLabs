@@ -1,12 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync, readdirSync } from 'node:fs';
 import { accountSchema, orderSchema, positionSchema } from '@coin/shared';
 import type { FastifyInstance } from 'fastify';
-import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../app.js';
 import { createDb, type Db } from '../db/prisma.js';
 import { seedInstruments } from '../db/seed-instruments.js';
+import { prepareTestDatabase } from '../testing/test-database.js';
 import { createAccount } from './accounts/create-account.js';
 import { generateEnrollmentCode } from './auth/enrollment-code.js';
 import { AccountQueue } from './orders/account-queue.js';
@@ -15,48 +14,11 @@ import { MemoryCounterStore } from './rate-limit/counter-store.js';
 import { RateLimiter, TradingRateLimits, type RateLimitConfig } from './rate-limit/rate-limiter.js';
 
 /**
- * Tests de integración contra Postgres real. Usan una base propia (`coin_api_test`) que se
- * recrea en cada corrida, así que no tocan los datos de desarrollo.
- * Si no hay Postgres disponible (por ejemplo en el CI actual), se omiten.
+ * Tests de integración contra Postgres real, en una base propia (`coin_api_test`) que se recrea
+ * en cada corrida: no tocan los datos de desarrollo. En el CI siempre corren (Postgres y Redis
+ * en `ci.yml` desde el PR #14); en local hace falta `pnpm infra:up`.
  */
-const ADMIN_URL =
-  process.env.TEST_DATABASE_ADMIN_URL ?? 'postgresql://coin:coin@localhost:5432/coin';
-const TEST_DATABASE = 'coin_api_test';
-const MIGRATIONS = new URL('../../prisma/migrations/', import.meta.url);
-
-async function prepareDatabase(): Promise<string | null> {
-  const admin = new pg.Client({ connectionString: ADMIN_URL, connectionTimeoutMillis: 1500 });
-  try {
-    await admin.connect();
-  } catch {
-    return null;
-  }
-  try {
-    await admin.query(`DROP DATABASE IF EXISTS ${TEST_DATABASE} WITH (FORCE)`);
-    await admin.query(`CREATE DATABASE ${TEST_DATABASE}`);
-  } finally {
-    await admin.end();
-  }
-
-  const url = new URL(ADMIN_URL);
-  url.pathname = `/${TEST_DATABASE}`;
-  const client = new pg.Client({ connectionString: url.href });
-  await client.connect();
-  try {
-    const folders = readdirSync(MIGRATIONS, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .sort();
-    for (const folder of folders) {
-      await client.query(readFileSync(new URL(`${folder}/migration.sql`, MIGRATIONS), 'utf8'));
-    }
-  } finally {
-    await client.end();
-  }
-  return url.href;
-}
-
-const databaseUrl = await prepareDatabase();
+const databaseUrl = await prepareTestDatabase('coin_api_test');
 
 /** 2027-01-15 08:00 UTC: inicio exacto de una ventana de un minuto y de una de 15 minutos. */
 const START = 1_800_000_000_000;
@@ -429,6 +391,44 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
     ).rejects.toThrow(/solo de inserción/);
     await expect(db.$executeRawUnsafe('TRUNCATE "audit_log"')).rejects.toThrow(/solo de inserción/);
     expect(await expectLedgerMatchesBalance(trader.accountId)).toBe('100000.00');
+  });
+
+  it('DEF-003: una cantidad que no cabe en la columna responde 422, sin orden, y queda auditada', async () => {
+    const trader = await newTrader();
+    setBtc('60000.00', '60010.00');
+    // JSON escrito tal cual, para que la cantidad llegue con su notación (por ejemplo `1e-30`).
+    const raw = (quantity: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/orders',
+        headers: { ...trader.headers, 'content-type': 'application/json' },
+        payload: `{"symbol":"BTCUSD","side":"buy","type":"market","quantity":${quantity},"clientOrderId":"${randomUUID()}"}`,
+      });
+
+    for (const quantity of ['1e-30', '4e-9', '1e20', '1e21']) {
+      const response = await raw(quantity);
+      expect(response.statusCode, quantity).toBe(422);
+      expect(response.json().error.code).toBe('invalid_quantity');
+    }
+    expect(await db.order.count({ where: { accountId: trader.accountId } })).toBe(0);
+    expect(await expectLedgerMatchesBalance(trader.accountId)).toBe('100000.00');
+
+    const refused = await db.auditLog.findMany({
+      where: { accountId: trader.accountId, action: 'order.refused' },
+      orderBy: { id: 'asc' },
+    });
+    expect(refused.every((entry) => entry.entityType === 'order_request')).toBe(true);
+    expect(refused.map((entry) => (entry.payload as { quantity: string }).quantity)).toEqual([
+      '1e-30',
+      '4e-9',
+      '100000000000000000000',
+      '1e+21',
+    ]);
+
+    // 1e19 sí cabe: llega al motor, que la rechaza por saldo y la guarda como siempre.
+    const fits = await raw('1e19');
+    expect(fits.statusCode).toBe(201);
+    expect(fits.json()).toMatchObject({ status: 'rejected', rejectReason: 'insufficient_funds' });
   });
 
   describe('límites de peticiones (D-13)', () => {
