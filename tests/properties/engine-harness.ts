@@ -3,9 +3,19 @@
  *
  * Simula el libro contable de una cuenta aplicando órdenes al motor real y guarda solo lo que
  * el motor devuelve. No reimplementa el motor: las reglas esperadas viven en `expectedOutcome`,
- * escritas desde `docs/engine-rules.md`, para compararlas contra el código.
+ * escritas desde `docs/engine-rules.md`, para compararlas contra el código. Los valores que
+ * comparten las apps (monto mínimo, umbrales de precio y motivos de rechazo) vienen del contrato,
+ * `@coin/shared`, sin copias.
  */
-import { INITIAL_BALANCE_USD, INSTRUMENTS, type Instrument } from '@coin/shared';
+import {
+  INITIAL_BALANCE_USD,
+  INSTRUMENTS,
+  MAX_TICK_FUTURE_MS,
+  MIN_ORDER_USD,
+  staleAfterMs,
+  type Instrument,
+  type OrderRejectReason,
+} from '@coin/shared';
 import fc from 'fast-check';
 import {
   dec,
@@ -14,16 +24,8 @@ import {
   ZERO,
   type Decimal,
   type MarketOrderResult,
-  type RejectReason,
 } from '../../apps/api/src/engine/index.js';
 
-export const STALE_AFTER_MS = 30_000;
-// Constantes del oráculo, copiadas de `docs/engine-rules.md` §5 y no del motor ni de `shared`:
-// si el motor cambia una sin cambiar las reglas, R1 lo detecta.
-/** Fila 4 (D-11): adelanto máximo tolerado de un tick sobre la hora del servidor. */
-export const MAX_FUTURE_SKEW_MS = 2_000;
-/** Fila 6 (D-01): monto mínimo por orden, en centavos. */
-export const MIN_ORDER_CENTS = 1_000n;
 export const WINDOW = { startsAt: 1_800_000_000_000, endsAt: 1_800_000_000_000 + 2 * 86_400_000 };
 /** Hora por defecto: dentro de la ventana de la competencia. */
 export const NOW = WINDOW.startsAt + 3_600_000;
@@ -84,7 +86,7 @@ export function apply(sim: Sim, command: Command): MarketOrderResult {
       ask: command.tick.ask,
       ts: command.now - command.tick.ageMs,
     },
-    staleAfterMs: STALE_AFTER_MS,
+    staleAfterMs: staleAfterMs(symbol),
     balance: sim.balance,
     position,
     side: command.side,
@@ -134,19 +136,25 @@ export function unrealizedOf(sim: Sim): Decimal {
 }
 
 /**
+ * `true` si el tick es obsoleto según la fila 4 (D-11): más viejo que el umbral de su símbolo
+ * (`staleAfterMs`) o fechado más de `MAX_TICK_FUTURE_MS` en el futuro.
+ */
+export function isStaleTick(symbol: Instrument['symbol'], ageMs: number): boolean {
+  return ageMs > staleAfterMs(symbol) || -ageMs > MAX_TICK_FUTURE_MS;
+}
+
+/**
  * Resultado esperado según la tabla de validaciones de `docs/engine-rules.md`, sección 5.
  * Devuelve el motivo de rechazo o `'filled'`. Usa enteros (`BigInt`) y no el decimal del motor.
  */
-export function expectedOutcome(sim: Sim, command: Command): RejectReason | 'filled' {
+export function expectedOutcome(sim: Sim, command: Command): OrderRejectReason | 'filled' {
   // Filas 1 y 2.
   if (!command.tradable) return 'market_closed';
   if (command.now < WINDOW.startsAt || command.now >= WINDOW.endsAt) return 'market_closed';
   // Fila 3.
   if (!command.tick) return 'no_price';
-  // Fila 4: viejo (`ahora − tick.ts > umbral`) o del futuro (`tick.ts − ahora > 2 s`).
-  if (command.tick.ageMs > STALE_AFTER_MS || -command.tick.ageMs > MAX_FUTURE_SKEW_MS) {
-    return 'stale_price';
-  }
+  // Fila 4.
+  if (isStaleTick(command.instrument.symbol, command.tick.ageMs)) return 'stale_price';
 
   // Fila 5. `minQuantity` es una unidad del último decimal permitido.
   const { quantityPrecision } = command.instrument;
@@ -158,7 +166,7 @@ export function expectedOutcome(sim: Sim, command: Command): RejectReason | 'fil
   const held = position ? toScaledOrThrow(position.quantity.toFixed(), quantityPrecision) : 0n;
   const cents = notionalCents(command.side, units, command.tick, quantityPrecision);
   const closesPosition = command.side === 'sell' && held > 0n && units === held;
-  if (cents < MIN_ORDER_CENTS && !closesPosition) return 'below_minimum';
+  if (cents < minOrderCents() && !closesPosition) return 'below_minimum';
 
   // Filas 7 y 8.
   if (command.side === 'buy') {
@@ -190,6 +198,11 @@ export function commandNotionalCents(command: Command): bigint {
   const { quantityPrecision } = command.instrument;
   const units = toScaledOrThrow(command.quantity, quantityPrecision);
   return notionalCents(command.side, units, command.tick, quantityPrecision);
+}
+
+/** Monto mínimo por orden en centavos (D-01): `MIN_ORDER_USD` del contrato, en enteros exactos. */
+export function minOrderCents(): bigint {
+  return toScaledOrThrow(String(MIN_ORDER_USD), 2);
 }
 
 /** Convierte un decimal en texto a entero con `scale` decimales. `null` si no cabe exacto. */
@@ -264,9 +277,9 @@ export function tickArb(instrument: Instrument, maxAgeMs = 0, minAgeMs = 0) {
  */
 export function futureTickArb(instrument: Instrument) {
   return fc.oneof(
-    tickArb(instrument, -1, -3 * MAX_FUTURE_SKEW_MS),
-    tickArb(instrument, -MAX_FUTURE_SKEW_MS, -MAX_FUTURE_SKEW_MS),
-    tickArb(instrument, -MAX_FUTURE_SKEW_MS - 1, -MAX_FUTURE_SKEW_MS - 1),
+    tickArb(instrument, -1, -3 * MAX_TICK_FUTURE_MS),
+    tickArb(instrument, -MAX_TICK_FUTURE_MS, -MAX_TICK_FUTURE_MS),
+    tickArb(instrument, -MAX_TICK_FUTURE_MS - 1, -MAX_TICK_FUTURE_MS - 1),
   );
 }
 
@@ -359,7 +372,7 @@ function happyIntentArb(instrument: Instrument): fc.Arbitrary<Intent> {
     size: sizeArb(instrument),
     tick: fc.oneof(
       { weight: 9, arbitrary: tickArb(instrument) },
-      { weight: 1, arbitrary: tickArb(instrument, -1, -MAX_FUTURE_SKEW_MS) },
+      { weight: 1, arbitrary: tickArb(instrument, -1, -MAX_TICK_FUTURE_MS) },
     ),
     now: fc.constant(NOW),
   });
@@ -383,7 +396,7 @@ function anyIntentArb(instrument: Instrument): fc.Arbitrary<Intent> {
     ),
     tick: fc.oneof(
       { weight: 9, arbitrary: tickArb(instrument) },
-      { weight: 2, arbitrary: tickArb(instrument, 2 * STALE_AFTER_MS) },
+      { weight: 2, arbitrary: tickArb(instrument, 2 * staleAfterMs(instrument.symbol)) },
       { weight: 2, arbitrary: futureTickArb(instrument) },
       fc.constant(null),
     ),
@@ -427,7 +440,7 @@ export const firstBuyArb: fc.Arbitrary<Command> = instrumentArb.chain((instrumen
       now: fc.constant(NOW),
     })
     .map((intent) => materialize(newSim(), intent))
-    .filter((command) => commandNotionalCents(command) >= MIN_ORDER_CENTS),
+    .filter((command) => commandNotionalCents(command) >= minOrderCents()),
 );
 
 /**

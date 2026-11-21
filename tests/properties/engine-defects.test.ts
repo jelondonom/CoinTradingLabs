@@ -5,7 +5,7 @@
  * quita `it.fails` y cierra el defecto en `docs/qa/defectos.md`. Los casos de los defectos
  * cerrados se quedan como pruebas de regresión.
  */
-import { INITIAL_BALANCE_USD, getInstrument } from '@coin/shared';
+import { INITIAL_BALANCE_USD, MAX_TICK_FUTURE_MS, getInstrument } from '@coin/shared';
 import fc from 'fast-check';
 import { writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -15,7 +15,6 @@ import {
   firstBuyArb,
   fixedPriceScenarioArb,
   newSim,
-  MAX_FUTURE_SKEW_MS,
   NOW,
   type Command,
 } from './engine-harness.js';
@@ -109,8 +108,8 @@ describe('DEF-002 (cerrado): un tick con fecha futura nunca se consideraba obsol
         fc.pre(command.tick !== null);
         const withAge = (ageMs: number) =>
           apply(newSim(), { ...command, tick: { ...command.tick!, ageMs } });
-        expect(withAge(-MAX_FUTURE_SKEW_MS).status).toBe('filled');
-        expect(withAge(-MAX_FUTURE_SKEW_MS - 1)).toEqual({
+        expect(withAge(-MAX_TICK_FUTURE_MS).status).toBe('filled');
+        expect(withAge(-MAX_TICK_FUTURE_MS - 1)).toEqual({
           status: 'rejected',
           reason: 'stale_price',
         });
