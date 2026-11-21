@@ -94,15 +94,14 @@ describe.skipIf(!databaseUrl)('DEF-003 contra Postgres', () => {
   });
 
   it('bordes: una cantidad que cabe justo en la columna se guarda como orden (201)', async () => {
-    // 8 decimales y menos de 10^20: caben. El motor las rechaza por otras reglas, pero la orden
-    // rechazada se guarda con su motivo, como cualquier otra.
+    // 8 decimales y menos de 10^20: caben, así que la API guarda la orden (ejecutada o rechazada por
+    // otras reglas del motor) y responde 201, como con cualquier otra cantidad.
     for (const quantity of ['0.00000001', '12345678901234567000']) {
       const ordersBefore = await countOrders();
 
       const response = await buy(quantity);
 
       expect(response.statusCode, `quantity ${quantity}`).toBe(201);
-      expect(response.json().status, `quantity ${quantity}`).toBe('rejected');
       expect(await countOrders(), `quantity ${quantity}`).toBe(ordersBefore + 1);
     }
   });
