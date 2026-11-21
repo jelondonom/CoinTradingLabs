@@ -60,6 +60,13 @@ Son hipótesis. Ninguna es un defecto hasta que un test la confirme.
   Backend lo retira en su tarea T7). `below_minimum` ya sale tal cual desde `11bb4c5`.
 - El CI no tiene Postgres: los tests de integración de la API no corren (solicitud 8).
 - `GET /account` valora con el último tick aunque sea obsoleto, sin avisarlo en la respuesta.
+- La API le pasa al motor un solo umbral de precio obsoleto (`STALE_PRICE_AFTER_MS`, 30 s por
+  defecto, en `apps/api/src/index.ts`) y no `staleAfterMs(symbol)` de `@coin/shared` (D-11). En
+  EURUSD y NGASUSD (60 s) la API rechazaría entre los 30 y los 60 s sin tick, mientras
+  market-data los muestra vigentes. Las propiedades no lo ven: el arnés le da al motor el umbral
+  por símbolo. Se confirma con una prueba de la API en la fase 2.
+- El motor tiene su propia copia de la tolerancia de tick futuro (`MAX_FUTURE_SKEW_MS`) en vez de
+  `MAX_TICK_FUTURE_MS` de `@coin/shared`.
 
 Descartado al revisar el código: dos posiciones abiertas del mismo símbolo en una cuenta. Las
 impide el índice único parcial `positions_open_account_symbol_key` sobre (`account_id`, `symbol`)
@@ -126,14 +133,15 @@ del bloqueo de la fila.
 
 ## 6. Lo que QA necesita de cada agente
 
-| De               | Qué                                                                                | Para         |
-| ---------------- | ---------------------------------------------------------------------------------- | ------------ |
-| Backend          | Responder `stale_price` tal cual, sin pasarlo a `no_price` (su tarea T7)           | R4           |
-| Backend          | Límite de peticiones en login y órdenes; ruta del ranking                          | R3, R9       |
-| Datos de Mercado | Escritura de `last:{symbol}` en Redis y umbral de obsolescencia en una sola fuente | R4, R10      |
-| Arquitecto       | Postgres en el CI (`clientOrderId` y `stale_price` ya están en el contrato v2)     | R6           |
-| Arquitecto       | Entorno de staging con datos sintéticos, k6 disponible y respaldos                 | R7, R11, R16 |
-| Frontend         | Flujo de órdenes en la web y atributos `data-testid` estables                      | R14          |
+| De               | Qué                                                                                 | Para         |
+| ---------------- | ----------------------------------------------------------------------------------- | ------------ |
+| Backend          | Responder `stale_price` tal cual, sin pasarlo a `no_price` (su tarea T7)            | R4           |
+| Backend          | Usar `staleAfterMs(symbol)` y `MAX_TICK_FUTURE_MS` de `@coin/shared` en las órdenes | R4, R10      |
+| Backend          | Límite de peticiones en login y órdenes; ruta del ranking                           | R3, R9       |
+| Datos de Mercado | Escritura de `last:{symbol}` en Redis y umbral de obsolescencia en una sola fuente  | R4, R10      |
+| Arquitecto       | Postgres en el CI (`clientOrderId` y `stale_price` ya están en el contrato v2)      | R6           |
+| Arquitecto       | Entorno de staging con datos sintéticos, k6 disponible y respaldos                  | R7, R11, R16 |
+| Frontend         | Flujo de órdenes en la web y atributos `data-testid` estables                       | R14          |
 
 ## 7. Decisiones del Gerente
 
