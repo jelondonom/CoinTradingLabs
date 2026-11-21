@@ -166,9 +166,11 @@ Formato: **Situación** → **Error o trampa** → **Práctica correcta** → **
   `STALE_PRICE_AFTER_MS` (30 s para todos) en `src/env.ts` y `src/index.ts`. Para `EURUSD` y
   `NGASUSD` (60 s en shared) la web muestra el precio vigente entre 30 y 60 s mientras el motor
   rechaza con `stale_price`. Pedido: usar `staleAfterMs(symbol)` de `@coin/shared`.
-- **Backend — tabla `candles` (D-18).** No está en `apps/api/prisma/schema.prisma`. Propuesta de
-  columnas: `symbol`, `interval`, `open_time` (clave primaria compuesta), `open`, `high`, `low`,
-  `close`, `volume`. Bloquea solo la fase 2 (persistir velas).
+- **Backend — tabla `candles` (D-18): resuelto.** En `main` desde el PR #20 (`660c87f`),
+  migración `20261121000000_candles`. Contrato y reglas de uso en `apps/api/prisma/README.md`,
+  sección "Tabla `candles` (D-18)": desde market-data solo upsert por lotes y `SELECT` en
+  `candles`, más `SELECT symbol, tradable FROM instruments` cada 30 s (D-05). `pg` 8.23.1
+  aprobado por el Gerente el 2026-11-21 para la fase 2.
 
 ### Flujo de trabajo
 
@@ -192,7 +194,9 @@ La lista oficial con casillas está en `docs/checklist-v0.md`. Orden, una rama y
 - [ ] Historial desde Binance al arrancar y al reconectar, sin huecos, hacia ese almacén.
 - [ ] Feed de repetición (`adapters/replay.ts`) con mensajes grabados.
 - [ ] Prueba de reconexión cortando la red, en local.
-- Fase 2, no empezar: persistir velas en la tabla del Backend cuando entre su migración (D-18).
+- Fase 2: persistir velas en la tabla `candles` del Backend (D-18, ya en `main`) y leer
+  `instruments.tradable` para `marketOpen` (D-05). Va después del `GET /candles`, como otra
+  implementación de la misma interfaz de almacén.
 
 ### Checklist del prompt v1 (histórico, 2026-11-17)
 
@@ -227,16 +231,16 @@ La lista oficial con casillas está en `docs/checklist-v0.md`. Orden, una rama y
 
 ### Pendientes y deuda técnica
 
-| Ítem                                                                                                    | Prioridad | Bloqueado por         |
-| ------------------------------------------------------------------------------------------------------- | --------- | --------------------- |
-| Persistir velas (no hay tabla en `apps/api/prisma/schema.prisma`)                                       | Alta      | Backend (D-18)        |
-| Histórico REST al arrancar y reconectar (`/api/v3/klines`, `/fapi/v1/klines`) [SIN VERIFICAR endpoints] | Alta      | Persistencia de velas |
-| Endpoint REST de velas para la gráfica                                                                  | Alta      | Frontend (parámetros) |
-| Feed de repetición con mensajes grabados                                                                | Media     | —                     |
-| Re-medir umbrales `stale` en sesión abierta y fin de semana                                             | Media     | —                     |
-| Prueba de reconexión cortando la red                                                                    | Media     | QA                    |
-| Volumen en velas (hoy 0)                                                                                | Baja      | —                     |
-| Ignorar `.claude/` en `.gitignore`                                                                      | Baja      | Arquitecto            |
+| Ítem                                                                                                    | Prioridad | Bloqueado por          |
+| ------------------------------------------------------------------------------------------------------- | --------- | ---------------------- |
+| Persistir velas en `candles` (tabla en `main`, PR #20)                                                  | Alta      | `GET /candles` primero |
+| Histórico REST al arrancar y reconectar (`/api/v3/klines`, `/fapi/v1/klines`) [SIN VERIFICAR endpoints] | Alta      | Persistencia de velas  |
+| Endpoint REST de velas para la gráfica                                                                  | Alta      | Frontend (parámetros)  |
+| Feed de repetición con mensajes grabados                                                                | Media     | —                      |
+| Re-medir umbrales `stale` en sesión abierta y fin de semana                                             | Media     | —                      |
+| Prueba de reconexión cortando la red                                                                    | Media     | QA                     |
+| Volumen en velas (hoy 0)                                                                                | Baja      | —                      |
+| Ignorar `.claude/` en `.gitignore`                                                                      | Baja      | Arquitecto             |
 
 ### Riesgos abiertos
 
