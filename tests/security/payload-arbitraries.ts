@@ -172,8 +172,7 @@ export function amountKey(order: Record<string, unknown>): 'quantity' | 'amountU
 
 /** Copia del objeto sin `key`. */
 export function withoutKey(object: Record<string, unknown>, key: string): Record<string, unknown> {
-  const { [key]: _removed, ...rest } = object;
-  return rest;
+  return Object.fromEntries(Object.entries(object).filter(([name]) => name !== key));
 }
 
 /** Cuerpos de orden: válidos o con un campo manipulado, como los mandaría un cliente alterado. */

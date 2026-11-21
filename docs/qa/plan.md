@@ -58,8 +58,10 @@ Son hipótesis. Ninguna es un defecto hasta que un test la confirme.
 - El WebSocket de mercado es público y no limita conexiones ni suscripciones por cliente.
 - La API responde `no_price` cuando el motivo real es `stale_price` (temporal, aprobado; el
   Backend lo retira en su tarea T7). `below_minimum` ya sale tal cual desde `11bb4c5`.
-- El CI no tiene Postgres: los tests de integración de la API no corren (solicitud 8).
 - `GET /account` valora con el último tick aunque sea obsoleto, sin avisarlo en la respuesta.
+- Con D-09 (orden por monto), un monto que no alcanza una unidad deja una orden rechazada con
+  `quantity = 0`, como permite el contrato v2. Pero la columna tiene `CHECK quantity > 0`: guardarla
+  daría el mismo 500 que DEF-003. Hoy no ocurre porque la API todavía no acepta órdenes por monto.
 - La API le pasa al motor un solo umbral de precio obsoleto (`STALE_PRICE_AFTER_MS`, 30 s por
   defecto, en `apps/api/src/index.ts`) y no `staleAfterMs(symbol)` de `@coin/shared` (D-11). En
   EURUSD y NGASUSD (60 s) la API rechazaría entre los 30 y los 60 s sin tick, mientras
@@ -92,8 +94,16 @@ del bloqueo de la fila.
 
 - Autorización: un token nunca accede a otra cuenta; token vencido, alterado o firmado con otro
   secreto se rechaza.
-- Entradas: cantidades negativas, cero, `NaN`, notación científica, precio enviado por el
-  cliente, símbolo fuera de catálogo, cuerpo gigante.
+- Entradas (hechas para el contrato v2, `tests/security/`): propiedades con fast-check sobre los
+  esquemas de login, orden, cierre y consulta de velas. Cubren números manipulados (negativos,
+  cero, `NaN`, infinitos, texto), campos que fija el servidor (precio, cuenta, estado), símbolos
+  falsos, UUID inválidos, contaminación de prototipos y límites de la consulta de velas. La API
+  real rechaza con 400, sin tocar la base, lo que el contrato rechaza en `POST /orders`. Hallazgos:
+  DEF-003 y DEF-004. `POST /positions/:id/close` y `GET /candles` todavía no existen: se probaron
+  solo contra el esquema.
+- Observación sin riesgo: la consulta de velas convierte `limit=0x10` en 16, `1e3` en 1000 y
+  `" 7 "` en 7, siempre dentro de 1–1000. `limit=` vacío se rechaza, aunque `from=` y `to=` vacíos
+  cuentan como no enviados.
 - Abuso: fuerza bruta de códigos de inscripción, ráfagas de órdenes, rutas de administración.
 - Escaneo base con OWASP ZAP y `pnpm audit`, solo contra staging.
 
@@ -133,15 +143,19 @@ del bloqueo de la fila.
 
 ## 6. Lo que QA necesita de cada agente
 
-| De               | Qué                                                                                 | Para         |
-| ---------------- | ----------------------------------------------------------------------------------- | ------------ |
-| Backend          | Responder `stale_price` tal cual, sin pasarlo a `no_price` (su tarea T7)            | R4           |
-| Backend          | Usar `staleAfterMs(symbol)` y `MAX_TICK_FUTURE_MS` de `@coin/shared` en las órdenes | R4, R10      |
-| Backend          | Límite de peticiones en login y órdenes; ruta del ranking                           | R3, R9       |
-| Datos de Mercado | Escritura de `last:{symbol}` en Redis y umbral de obsolescencia en una sola fuente  | R4, R10      |
-| Arquitecto       | Postgres en el CI (`clientOrderId` y `stale_price` ya están en el contrato v2)      | R6           |
-| Arquitecto       | Entorno de staging con datos sintéticos, k6 disponible y respaldos                  | R7, R11, R16 |
-| Frontend         | Flujo de órdenes en la web y atributos `data-testid` estables                       | R14          |
+| De               | Qué                                                                                     | Para         |
+| ---------------- | --------------------------------------------------------------------------------------- | ------------ |
+| Backend          | Responder `stale_price` tal cual, sin pasarlo a `no_price` (su tarea T7)                | R4           |
+| Backend          | Usar `staleAfterMs(symbol)` y `MAX_TICK_FUTURE_MS` de `@coin/shared` en las órdenes     | R4, R10      |
+| Backend          | Ruta del ranking (el límite de peticiones ya está en `main`, PR #17)                    | R3           |
+| Backend          | Corregir DEF-003: una cantidad que no cabe en `DECIMAL(28,8)` no debe dar 500           | R1, R8       |
+| Backend          | Corregir DEF-004: el login debe usar `loginRequestSchema` de `@coin/shared` (D-04)      | R12          |
+| Backend          | Con D-09, guardar una orden por monto rechazada con `quantity = 0` sin violar el CHECK  | R1           |
+| Datos de Mercado | Escritura de `last:{symbol}` en Redis y umbral de obsolescencia en una sola fuente      | R4, R10      |
+| Arquitecto       | Dividir el ítem de `tests/security/` del checklist: payloads (fase 1) y sesión (fase 2) | R5, R12      |
+| Arquitecto       | Decidir si `limit=` vacío en `GET /candles` toma el valor por defecto, como `from=`     | —            |
+| Arquitecto       | Entorno de staging con datos sintéticos, k6 disponible y respaldos                      | R7, R11, R16 |
+| Frontend         | Flujo de órdenes en la web y atributos `data-testid` estables                           | R14          |
 
 ## 7. Decisiones del Gerente
 
