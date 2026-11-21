@@ -56,7 +56,23 @@ servidor reparte. Reportas al Gerente General. Si tu servicio falla, nadie opera
   `redis-tick-publisher.ts`.
 - `apps/market-data/src/` — `app.ts` (Fastify, `/health`, `/ws/market`), `env.ts`, `index.ts`,
   `candle-aggregator.ts`, `price-simulator.ts`.
-- Aún no existen `candles/` (persistencia) ni `calendar/`.
+- Aún no existen `candles/` (persistencia) ni `calendar/` (D-05: sin calendario en V0.1).
+
+### Servicio: puerto, rutas, variables y hosts (verificado en `main` el 2026-11-21)
+
+- Puerto `3001` (`MARKET_DATA_PORT`), host `0.0.0.0` (`MARKET_DATA_HOST`).
+- Rutas internas: `GET /health` y `GET /ws/market` (WebSocket). `GET /candles` (`CANDLES_PATH`)
+  aún no existe: llega con la tarea del REST de velas. El navegador las llama como
+  `/market/candles` y `/ws/market` por Caddy o Vite (ADR-0004).
+- Producción: `NODE_ENV=production`, `FEED=live` (el mock se bloquea) y `REDIS_URL`
+  obligatoria. El resto tiene valor por defecto; todas están en `.env.example` y en `src/env.ts`.
+- Hosts de Binance que usa el feed hoy (solo WebSocket, sin llave):
+  - Spot: `wss://stream.binance.com:9443/stream?streams=…` (`BINANCE_SPOT_WS_URL`).
+  - Futuros: `wss://fstream.binance.com/stream?streams=…` (`BINANCE_FUTURES_WS_URL`).
+- Hosts REST previstos para el historial: `api.binance.com` (`/api/v3/klines`) y
+  `fapi.binance.com` (`/fapi/v1/klines`) [SIN VERIFICAR en la documentación oficial; se verifica
+  antes de usarlos].
+- Binance bloquea EE.UU.; la región del servidor debe estar fuera (D-06).
 
 ### Convenciones
 
@@ -136,13 +152,23 @@ Formato: **Situación** → **Error o trampa** → **Práctica correcta** → **
 ### Contratos con otros agentes
 
 - Consumes del Arquitecto: `packages/shared/src/instrument.ts` (31 símbolos, `pricePrecision`),
-  `tick.ts`, `ws-market.ts` (incluye `status`), `candle.ts` (sin 4h). `CONTRACT_VERSION = 1`.
+  `tick.ts`, `ws-market.ts` (`status` con `marketOpen`), `candle.ts` (con 4h y `GET /candles`),
+  `price-freshness.ts` (`staleAfterMs`). `CONTRACT_VERSION = 2` (ADR-0004).
 - Entregas a Backend: `SET last:{symbol}` sin TTL con el tick en JSON; `PUBLISH ticks:{symbol}`;
   `ts` = hora de recepción; hasta 4 por segundo y símbolo. Acordado el 2026-11-17.
 - Entregas a Frontend: `/ws/market` con `subscribed`, `tick`, `candle` y `status`.
-- Acuerdo pendiente: `staleAfterMs(symbol)` pasa a `packages/shared` y la importan market-data y
-  la API. Mientras tanto Backend usa excepciones de 60 s para `EURUSD` y `NGASUSD`
-  [SIN VERIFICAR que ya las aplicó].
+- `staleAfterMs(symbol)` vive en `packages/shared` (D-11). market-data lo usa desde el PR #16.
+  La API todavía no: ver "Pedidos a otros agentes".
+
+### Pedidos a otros agentes (abiertos al 2026-11-21)
+
+- **Backend — umbral de precio obsoleto (D-11).** `apps/api` sigue usando
+  `STALE_PRICE_AFTER_MS` (30 s para todos) en `src/env.ts` y `src/index.ts`. Para `EURUSD` y
+  `NGASUSD` (60 s en shared) la web muestra el precio vigente entre 30 y 60 s mientras el motor
+  rechaza con `stale_price`. Pedido: usar `staleAfterMs(symbol)` de `@coin/shared`.
+- **Backend — tabla `candles` (D-18).** No está en `apps/api/prisma/schema.prisma`. Propuesta de
+  columnas: `symbol`, `interval`, `open_time` (clave primaria compuesta), `open`, `high`, `low`,
+  `close`, `volume`. Bloquea solo la fase 2 (persistir velas).
 
 ### Flujo de trabajo
 
@@ -153,10 +179,22 @@ Formato: **Situación** → **Error o trampa** → **Práctica correcta** → **
 
 ## PARTE B — Estado actual (snapshot, caduca)
 
-### Checklist v0 de mi rol
+### Tareas V0.1 (2026-11-21, del Arquitecto)
 
-`docs/checklist-v0.md` no existe en el repo ni en `C:\dev` (verificado 2026-11-17). Uso como
-sustituto las responsabilidades y criterios del prompt v1.
+La lista oficial con casillas está en `docs/checklist-v0.md`. Orden, una rama y una carpeta
+`ctl-datos-<tarea>` por tarea:
+
+- [x] Cerrar `feat/market-data-stale-shared` y borrar `ctl-datos-t1` (OK del Gerente).
+- [ ] Puesta al día de este documento y de `.env.example` (rama `docs/datos-mercado-puesta-al-dia`).
+- [ ] `GET /candles` con `candlesQuerySchema` y `candlesResponseSchema`, tras una interfaz de
+      almacén con implementación en memoria.
+- [ ] Velas derivadas de 5m, 15m, 1h, 4h y 1d.
+- [ ] Historial desde Binance al arrancar y al reconectar, sin huecos, hacia ese almacén.
+- [ ] Feed de repetición (`adapters/replay.ts`) con mensajes grabados.
+- [ ] Prueba de reconexión cortando la red, en local.
+- Fase 2, no empezar: persistir velas en la tabla del Backend cuando entre su migración (D-18).
+
+### Checklist del prompt v1 (histórico, 2026-11-17)
 
 - [x] Adaptadores tras `FeedAdapter` — `adapters/mock.ts`, `adapters/binance.ts`.
 - [x] Tick normalizado y validado con Zod — `normalizer/binance.ts`, 66 tests en verde.
@@ -191,12 +229,9 @@ sustituto las responsabilidades y criterios del prompt v1.
 
 | Ítem                                                                                                    | Prioridad | Bloqueado por         |
 | ------------------------------------------------------------------------------------------------------- | --------- | --------------------- |
-| Mover `staleAfterMs(symbol)` a `packages/shared`                                                        | Alta      | Arquitecto            |
-| Persistir velas (no hay tabla en `apps/api/prisma/schema.prisma`)                                       | Alta      | Arquitecto            |
+| Persistir velas (no hay tabla en `apps/api/prisma/schema.prisma`)                                       | Alta      | Backend (D-18)        |
 | Histórico REST al arrancar y reconectar (`/api/v3/klines`, `/fapi/v1/klines`) [SIN VERIFICAR endpoints] | Alta      | Persistencia de velas |
 | Endpoint REST de velas para la gráfica                                                                  | Alta      | Frontend (parámetros) |
-| Vela de 4h en `CANDLE_INTERVALS`                                                                        | Media     | Arquitecto            |
-| Calendario e `isOpen` (perpetuos cotizan 24/7)                                                          | Media     | Decisión del Gerente  |
 | Feed de repetición con mensajes grabados                                                                | Media     | —                     |
 | Re-medir umbrales `stale` en sesión abierta y fin de semana                                             | Media     | —                     |
 | Prueba de reconexión cortando la red                                                                    | Media     | QA                    |
