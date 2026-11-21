@@ -148,7 +148,7 @@ del bloqueo de la fila.
 | Backend          | Responder `stale_price` tal cual, sin pasarlo a `no_price` (su tarea T7)                | R4           |
 | Backend          | Usar `staleAfterMs(symbol)` y `MAX_TICK_FUTURE_MS` de `@coin/shared` en las órdenes     | R4, R10      |
 | Backend          | Ruta del ranking (el límite de peticiones ya está en `main`, PR #17)                    | R3           |
-| Backend          | Corregir DEF-003: una cantidad que no cabe en `DECIMAL(28,8)` no debe dar 500           | R1, R8       |
+| Backend          | Corregir DEF-003: una cantidad que no cabe en `DECIMAL(28,8)` no debe dar 500           | R1           |
 | Backend          | Corregir DEF-004: el login debe usar `loginRequestSchema` de `@coin/shared` (D-04)      | R12          |
 | Backend          | Con D-09, guardar una orden por monto rechazada con `quantity = 0` sin violar el CHECK  | R1           |
 | Datos de Mercado | Escritura de `last:{symbol}` en Redis y umbral de obsolescencia en una sola fuente      | R4, R10      |

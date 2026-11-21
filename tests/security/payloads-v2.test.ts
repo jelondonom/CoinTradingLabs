@@ -88,10 +88,13 @@ describe('login (`loginRequestSchema`)', () => {
 
   it('L2: rechaza un código que no es texto o que no viene', () => {
     fc.assert(
-      fc.property(fc.oneof(anyJsonArb.filter((value) => typeof value !== 'string')), (code) => {
-        expectRejected(loginRequestSchema, { code });
-        expectRejected(loginRequestSchema, {});
-      }),
+      fc.property(
+        anyJsonArb.filter((value) => typeof value !== 'string'),
+        (code) => {
+          expectRejected(loginRequestSchema, { code });
+          expectRejected(loginRequestSchema, {});
+        },
+      ),
       RUNS,
     );
   });
