@@ -9,7 +9,7 @@
 | ------- | --------- | ------ | -------------------- | ---------------------------------------------------- |
 | DEF-001 | Alta      | Motor  | Cerrado (2026-11-18) | El redondeo a centavos por orden crea dinero         |
 | DEF-002 | Media     | Motor  | Cerrado (2026-11-18) | Un tick con fecha futura nunca se considera obsoleto |
-| DEF-003 | Media     | API    | Abierto              | Una cantidad fuera de `DECIMAL(28,8)` responde 500   |
+| DEF-003 | Media     | API    | Cerrado (2026-11-21) | Una cantidad fuera de `DECIMAL(28,8)` responde 500   |
 | DEF-004 | Baja      | API    | Abierto              | El login no aplica el esquema del contrato v2        |
 
 Probado el 2026-11-16 sobre la rama `feat/api-engine-v0` (commit `9dc48f8`). Vuelto a probar el
@@ -18,7 +18,8 @@ Vueltos a probar el 2026-11-18 sobre la rama `qa/cierre-def-001-def-002`, que re
 de DEF-001 (`37fc65a`, ajustada al contrato v2 en `11bb4c5`), la de DEF-002 (`0fc8d0f`, ya en
 `main`) y `main` al día: los dos se cierran. Detalle en la sección "Cierre" de cada uno.
 
-DEF-003 y DEF-004 se probaron el 2026-11-21 sobre `main` en `4d12094`.
+DEF-003 y DEF-004 se probaron el 2026-11-21 sobre `main` en `4d12094`. DEF-003 se volvió a probar
+el mismo día sobre `main` en `268bf1e`, ya con la corrección del PR #21, y se cierra.
 
 ## DEF-001: el redondeo a centavos por orden crea dinero
 
@@ -125,6 +126,21 @@ el CHECK; `1e20` y `1e21` desbordan la columna. Con `0.01` y `6e-9` responde 201
 
 **Evidencia**: `tests/security/def-003.integration.test.ts`, caso `DEF-003` con `it.fails`, contra
 Postgres (corre en el CI).
+
+**Cierre** (2026-11-21)
+
+- Corrección del Backend en `8f91af8` (PR #21): antes de llamar al motor, la API revisa si la
+  cantidad cabe en `orders.quantity` (máximo 8 decimales y menos de 10^20). Si no cabe, responde
+  422 `invalid_quantity` sin crear la orden (rechazo de negocio sin orden guardada, contrato v2) y
+  deja el intento en `audit_logs` con `action = 'order.refused'`. Así se conserva la evidencia de
+  la conducta 5, que era parte de la severidad.
+- El Backend solo cambió el `it.fails` por `it`. QA ajustó la prueba para que pida exactamente lo
+  que dice el contrato: para `1e-30`, `4e-9`, `1e20` y `1e21` la respuesta es 422 con
+  `error.code = invalid_quantity`, no se crea ninguna orden y queda una sola fila
+  `order.refused` con el `clientOrderId` y la cantidad.
+- Bordes que sí caben (`0.00000001` y `12345678901234567000`): responden 201 y la orden rechazada se
+  guarda con su motivo, como antes.
+- `pnpm test` en verde con Postgres, sin tests omitidos.
 
 ## DEF-004: el login no aplica el esquema del contrato v2
 
