@@ -120,6 +120,13 @@ prisma/schema.prisma --script` y añade al final lo escrito a mano →
    en GitHub: el usuario abre los PR a mano; entrégale título y descripción listos.
 8. **Script con efecto al importar** → `seed.ts` ejecuta `main()` al cargarse; importarlo desde
    un test conecta a la base → Separa la lógica reutilizable (`db/seed-instruments.ts`).
+9. **PR en rojo por un oráculo ajeno** (PR #12, DEF-001) → La regla nueva de redondeo rompió los
+   oráculos de QA (E2, E4, R1 en `tests/properties/engine-invariants.test.ts`). Aun así entregué
+   la plantilla del PR, hice commit con `pnpm test` en rojo y no traje `main` antes de empujar. El
+   CI (job 135328520243) falló: 3 failed | 16 passed → Un cambio de regla y el ajuste del test del
+   otro dueño entran en la misma fusión: QA crea su rama desde la mía y se fusiona el PR de QA.
+   Mientras tanto, mi PR va como borrador "[bloqueado: QA]". El CI prueba la fusión con `main`,
+   no mi rama sola → commits `37fc65a`, `8e62b8a`.
 
 ### Prácticas senior adoptadas
 
@@ -129,7 +136,17 @@ prisma/schema.prisma --script` y añade al final lo escrito a mano →
 - Probar cada regla con las cifras exactas del ejemplo de `docs/engine-rules.md` §8.
 - Base desechable por corrida para integración (`coin_api_test`, se recrea y se borra).
 - Prueba de punta a punta con la API compilada, una base y un índice de Redis aparte, y limpiar al terminar.
-- Pedir cambios de contrato por escrito en `docs/engine-rules.md` §10, con número.
+- Pedir cambios de contrato por escrito en `docs/engine-rules.md` §10, con número, el mismo día
+  que surgen. Decirlo solo en el chat no cuenta.
+- Entregar con cada PR la plantilla lista para el Gerente: título Conventional Commit, base y
+  rama, qué cambia, cómo se verificó (comandos y resultados) y la línea de Claude Code. El
+  Gerente la revisa y abre el PR a mano (aprobado por el Gerente, 2026-11-18).
+- Separar en el reporte lo que el `/code-review` encontró y no se corrigió, con su dueño (QA,
+  Arquitecto o una tarea futura).
+- Marcar el checklist con evidencia que sobreviva a la fusión (test, comando o número de PR),
+  nunca con un nombre de rama.
+- Antes de entregar un PR, correr `pnpm build` además de `pnpm test` y `pnpm lint`: el CI
+  corre los tres.
 
 ### Contratos con otros agentes
 
@@ -143,8 +160,19 @@ prisma/schema.prisma --script` y añade al final lo escrito a mano →
 
 ### Flujo de trabajo
 
-- Plan antes de tareas no triviales; esperar OK del Gerente.
+- Plan antes de tareas no triviales, en modo plan (`/plan`); esperar OK del Gerente.
 - Una tarea a la vez; reportar qué cambió y cómo revisarlo.
+- Cerrar cada tarea con: test, lint y build en verde → `/code-review` → commit → plantilla del
+  PR → lista de pendientes para otros agentes.
+- Memorando para todo PR (incidente del PR #12, lección 9):
+  1. `git fetch` y `git merge origin/main` en la rama, justo antes de entregar.
+  2. Correr los pasos del CI sobre esa fusión: `pnpm install --frozen-lockfile`, `pnpm lint`,
+     `pnpm test` y `pnpm build`. Los cuatro en verde.
+  3. Correr la integración local (`trading.integration.test.ts`): el CI no tiene Postgres.
+  4. Si un test de otro dueño debe cambiar, coordinar antes y entregar el PR como borrador
+     "[bloqueado: <dueño>]". No hacer commit con `pnpm test` en rojo. Única excepción: el
+     Gerente decide que el otro dueño corrige; entonces el commit y el PR lo dicen.
+  5. Cuando otro agente cree su rama desde la mía, no empujar más commits a la mía.
 - Certeza menor a ~80 %: preguntar. Nunca inventar.
 - Al cerrar sesión, actualizar este archivo según `docs/agents/PROTOCOLO`.
 

@@ -52,8 +52,8 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] Redis: `last:{symbol}` y `ticks:{symbol}`.
 - [x] WebSocket público con suscripción por símbolo y límite de 4/s.
 - [x] Mensaje `status` con precio obsoleto y reconexión con backoff.
-- [ ] `staleAfterMs` leído desde `packages/shared` (D-11).
-- [ ] `marketOpen` en `status` según D-05.
+- [x] `staleAfterMs` leído desde `packages/shared` (D-11) — `gateway/stale-tracker.ts` sin copia local; test de umbral por símbolo en `stale-tracker.test.ts`.
+- [x] `marketOpen` en `status` según D-05 — `symbolStatus()` único punto de decisión (abierto salvo precio obsoleto; sin fuente de "deshabilitado" aún, opción A del Gerente); prueba en vivo de 60 s con 31 símbolos.
 - [ ] Velas de 1m persistidas en la tabla del Backend (D-18).
 - [ ] Velas derivadas: 5m, 15m, 1h, 4h y 1d.
 - [ ] Historial desde Binance al arrancar y tras reconectar, sin huecos.
@@ -69,8 +69,8 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] `POST /orders` idempotente por `clientOrderId`; ejecución al `ask`/`bid`.
 - [x] `ledger_entries` append-only; su suma coincide con el saldo.
 - [x] `GET /account`.
-- [x] DEF-002: tick con fecha futura rechazado (D-11) — test DEF-002 de `engine-defects.test.ts` en verde con `pnpm test`; QA cierra el defecto.
-- [ ] DEF-001: redondeo en contra del participante y mínimo de 10 USD (D-01).
+- [x] DEF-002: tick con fecha futura rechazado (D-11) — PR #10 (`0fc8d0f`); QA cierra el defecto.
+- [x] DEF-001: redondeo en contra del participante y mínimo de 10 USD (D-01) — PR #12 (tests DEF-001 de `engine-defects.test.ts` y `market-order.test.ts` en verde); entra a `main` junto con el ajuste de QA a E2, E4 y R1; QA cierra el defecto.
 - [ ] Límite de peticiones en login y órdenes (D-13).
 - [ ] Tabla de velas (D-18).
 - [ ] Login con cookie `httpOnly` y WS de cuenta autenticado (D-04).
@@ -111,7 +111,7 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] Reglamento actualizado con D-05, D-08, D-12, D-13 y D-19 — `docs/qa/reglamento-anti-trampa.md` v0.2.
 - [ ] `tests/security/`: cuenta ajena, sesión vencida o alterada y payloads manipulados.
 - [ ] Idempotencia y concurrencia probadas con Postgres.
-- [ ] DEF-001 y DEF-002 vueltos a probar y cerrados.
+- [x] DEF-001 y DEF-002 vueltos a probar y cerrados — `docs/qa/defectos.md` (sección "Cierre"); `tests/properties/engine-defects.test.ts` en verde con `pnpm test`.
 - [ ] E2E con Playwright del flujo completo, en móvil y escritorio.
 - [ ] k6 de 500 conexiones WebSocket: primero en local, luego en staging.
 - [ ] k6 de ráfagas contra `POST /orders`.

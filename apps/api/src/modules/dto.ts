@@ -21,9 +21,9 @@ export function toNumber(value: { toString(): string }): number {
 }
 
 /**
- * TEMPORAL: el contrato aún no tiene `stale_price`, así que hacia afuera se informa como
- * `no_price`. La base guarda el motivo real. Se elimina cuando el Arquitecto lo agregue
- * (solicitud 1 de `docs/engine-rules.md`).
+ * TEMPORAL hasta la tarea T7: `stale_price` sale como `no_price`. El contrato v2 ya lo admite,
+ * pero el cambio hacia afuera es parte de T7. `below_minimum` sale tal cual desde el contrato v2.
+ * La base guarda siempre el motivo real.
  */
 export function toPublicRejectReason(reason: DbRejectReason): OrderRejectReason {
   return reason === 'stale_price' ? 'no_price' : reason;

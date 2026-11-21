@@ -80,17 +80,100 @@ describe('compra market', () => {
     expect(reason(executeMarketOrder(input({ balance: '30004.99' })))).toBe('insufficient_funds');
   });
 
-  it('redondea el monto a centavos, la mitad hacia arriba', () => {
-    // 0,00001 × 60.050,00 = 0,6005 → 0,60. 0,00003 × 60.050,00 = 1,8015 → 1,80.
-    const tick = { bid: '60040.00', ask: '60050.00', ts: NOW };
+  it('redondea el monto hacia arriba al centavo (D-01)', () => {
+    // 0,00017 × 60.010,00 = 10,2017 → 10,21 (al más cercano sería 10,20).
+    const tick = { bid: '60000.00', ask: '60010.00', ts: NOW };
+    const result = filled(executeMarketOrder(input({ tick, quantity: '0.00017' })));
+    expect(result.notional.toFixed(2)).toBe('10.21');
+    expect(result.balanceAfter.toFixed(2)).toBe('99989.79');
+  });
+});
+
+describe('monto mínimo de 10 USD (D-01)', () => {
+  const unit = { tradable: true, quantityPrecision: 0, minQuantity: '1' };
+
+  it('compra: rechaza 9,99 y acepta 10,00, comparando el monto ya redondeado', () => {
+    const under = { bid: '9.98', ask: '9.99', ts: NOW };
     expect(
-      filled(executeMarketOrder(input({ tick, quantity: '0.00001' }))).notional.toFixed(2),
-    ).toBe('0.60');
-    // 0,00005 × 60.100,00 = 3,005 → 3,01.
-    const half = { bid: '60090.00', ask: '60100.00', ts: NOW };
+      reason(executeMarketOrder(input({ instrument: unit, tick: under, quantity: '1' }))),
+    ).toBe('below_minimum');
+    // 1 × 9,991 = 9,991 → 10,00 al redondear hacia arriba: ya alcanza el mínimo.
+    const atMinimum = { bid: '9.99', ask: '9.991', ts: NOW };
+    const result = filled(
+      executeMarketOrder(input({ instrument: unit, tick: atMinimum, quantity: '1' })),
+    );
+    expect(result.notional.toFixed(2)).toBe('10.00');
+  });
+
+  it('venta parcial: rechaza bajo el mínimo', () => {
+    const position = { quantity: '3', costBasis: '30.00', realizedPnl: '0' };
+    const tick = { bid: '9.99', ask: '10.00', ts: NOW };
     expect(
-      filled(executeMarketOrder(input({ tick: half, quantity: '0.00005' }))).notional.toFixed(2),
-    ).toBe('3.01');
+      reason(
+        executeMarketOrder(
+          input({ instrument: unit, side: 'sell', quantity: '1', position, tick }),
+        ),
+      ),
+    ).toBe('below_minimum');
+  });
+
+  it('venta total: cierra aunque valga menos de 10 USD', () => {
+    const position = { quantity: '3', costBasis: '30.00', realizedPnl: '0' };
+    const tick = { bid: '3.00', ask: '3.01', ts: NOW };
+    const result = filled(
+      executeMarketOrder(input({ instrument: unit, side: 'sell', quantity: '3', position, tick })),
+    );
+    expect(result.notional.toFixed(2)).toBe('9.00');
+    expect(result.realizedPnl.toFixed(2)).toBe('-21.00');
+    expect(result.position.closed).toBe(true);
+  });
+
+  it('el motivo va después de invalid_quantity y antes de los de saldo y posición', () => {
+    const under = { bid: '9.98', ask: '9.99', ts: NOW };
+    expect(
+      reason(executeMarketOrder(input({ instrument: unit, tick: under, quantity: '1.5' }))),
+    ).toBe('invalid_quantity');
+    expect(
+      reason(
+        executeMarketOrder(input({ instrument: unit, tick: under, quantity: '1', balance: '0' })),
+      ),
+    ).toBe('below_minimum');
+    expect(
+      reason(
+        executeMarketOrder(
+          input({ instrument: unit, tick: under, side: 'sell', quantity: '1', position: null }),
+        ),
+      ),
+    ).toBe('below_minimum');
+  });
+});
+
+describe('DEF-001: el redondeo no crea dinero', () => {
+  it('100 compras de 37 TRX y una venta, al mismo precio, no dan ganancia', () => {
+    // 37 × 0,2849 = 10,5413: cada compra cuesta 10,55 (con la mitad hacia arriba costaba 10,54
+    // y el ciclo ganaba 0,13). La venta de 3.700 paga 1.054,13.
+    const trx = { tradable: true, quantityPrecision: 0, minQuantity: '1' };
+    const tick = { bid: '0.2849', ask: '0.2849', ts: NOW };
+    let balance = '100000.00';
+    let position: { quantity: string; costBasis: string; realizedPnl: string } | null = null;
+    for (let i = 0; i < 100; i += 1) {
+      const buy = filled(
+        executeMarketOrder(input({ instrument: trx, tick, quantity: '37', balance, position })),
+      );
+      balance = buy.balanceAfter.toFixed(2);
+      position = {
+        quantity: buy.position.quantity.toString(),
+        costBasis: buy.position.costBasis.toFixed(2),
+        realizedPnl: buy.position.realizedPnl.toFixed(2),
+      };
+    }
+    const sell = filled(
+      executeMarketOrder(
+        input({ instrument: trx, tick, side: 'sell', quantity: '3700', balance, position }),
+      ),
+    );
+    expect(sell.notional.toFixed(2)).toBe('1054.13');
+    expect(sell.balanceAfter.toFixed(2)).toBe('99999.13');
   });
 });
 
@@ -129,6 +212,21 @@ describe('venta market', () => {
     expect(result.position.quantity.isZero()).toBe(true);
     expect(result.position.costBasis.isZero()).toBe(true);
     expect(result.position.closed).toBe(true);
+  });
+
+  it('redondea el monto hacia abajo al centavo (D-01)', () => {
+    // 0,00017 × 60.050,00 = 10,2085 → 10,20 (al más cercano sería 10,21).
+    const result = filled(
+      executeMarketOrder(
+        input({
+          side: 'sell',
+          quantity: '0.00017',
+          position,
+          tick: { bid: '60050.00', ask: '60060.00', ts: NOW },
+        }),
+      ),
+    );
+    expect(result.notional.toFixed(2)).toBe('10.20');
   });
 
   it('registra una pérdida cuando el bid cae bajo el costo', () => {

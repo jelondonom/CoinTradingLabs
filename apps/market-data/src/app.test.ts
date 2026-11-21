@@ -84,7 +84,7 @@ describe('market-data', () => {
     // Sin precio todavía, el símbolo se informa como desactualizado.
     expect(client.messages[2]).toMatchObject({
       type: 'status',
-      data: { symbol: 'BTCUSD', stale: true },
+      data: { symbol: 'BTCUSD', stale: true, marketOpen: false },
     });
 
     app.publishStatus({ symbol: 'ETHUSD', stale: true, marketOpen: false, ts: 2_000 });
