@@ -21,16 +21,16 @@ alerta alta de `effect`.
 
 ### `effect` — alta
 
-| Campo             | Valor                                                                                                                                                                                                   |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Aviso             | [GHSA-7589-6fvf-x4pw](https://github.com/advisories/GHSA-7589-6fvf-x4pw): ReDoS en la expresión regular que compila `Schema.TemplateLiteral`                                                            |
-| Versión instalada | 3.20.0 (vulnerables: ≤ 3.22.0)                                                                                                                                                                          |
-| Versión corregida | ≥ 3.22.1                                                                                                                                                                                                |
-| Ruta              | `apps/api > prisma > @prisma/config > effect` (también como dependencia par opcional de `@prisma/client`)                                                                                               |
-| Tipo              | Desarrollo: `prisma` es dependencia de desarrollo de `apps/api` (CLI para `generate` y migraciones)                                                                                                     |
-| ¿Explotable aquí? | No con datos de un participante. La API y el cliente generado no importan `effect` ni `@prisma/config`; Prisma usa `effect` para leer `prisma.config.ts`, que escribe el equipo                         |
-| Dueño             | Backend (dependencias de `apps/api`), con el Arquitecto (`pnpm.overrides` en el `package.json` de la raíz)                                                                                              |
-| Recomendación     | Opción A (recomendada): override `effect >= 3.22.1` y verificar `prisma generate`, migraciones y `pnpm test`. Opción B: el Gerente acepta el riesgo por escrito hasta que Prisma publique la corrección |
+| Campo             | Valor                                                                                                                                                                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Aviso             | [GHSA-7589-6fvf-x4pw](https://github.com/advisories/GHSA-7589-6fvf-x4pw): ReDoS en la expresión regular que compila `Schema.TemplateLiteral`                                                                            |
+| Versión instalada | 3.20.0 (vulnerables: ≤ 3.22.0)                                                                                                                                                                                          |
+| Versión corregida | ≥ 3.22.1                                                                                                                                                                                                                |
+| Ruta              | `apps/api > prisma > @prisma/config > effect` (también como dependencia par opcional de `@prisma/client`)                                                                                                               |
+| Tipo              | Desarrollo: `prisma` es dependencia de desarrollo de `apps/api` (CLI para `generate` y migraciones)                                                                                                                     |
+| ¿Explotable aquí? | No con datos de un participante. La API y el cliente generado no importan `effect` ni `@prisma/config`: solo lo carga la CLI de Prisma, que trabaja con archivos del equipo (`prisma.config.ts`, esquema y migraciones) |
+| Dueño             | Backend (dependencias de `apps/api`), con el Arquitecto (`pnpm.overrides` en el `package.json` de la raíz)                                                                                                              |
+| Recomendación     | Opción A (recomendada): override `effect >= 3.22.1` y verificar `prisma generate`, migraciones y `pnpm test`. Opción B: el Gerente acepta el riesgo por escrito hasta que Prisma publique la corrección                 |
 
 Actualizar Prisma no lo arregla hoy: la versión más nueva de `@prisma/config` en npm todavía pide
 `effect` 3.20.0.
@@ -48,11 +48,13 @@ Actualizar Prisma no lo arregla hoy: la versión más nueva de `@prisma/config` 
 | Dueño             | Arquitecto (dependencias de desarrollo de la raíz)                                                                                    |
 | Recomendación     | Actualizar `typescript-eslint` a 8.73.0: su `@typescript-eslint/typescript-estree` ya pide `minimatch ^11.0.1`                        |
 
-## Alertas cerradas
+## Alertas que ya no aparecen
 
-| Paquete     | Severidad | Cerrada                     | Cómo                                                                            |
-| ----------- | --------- | --------------------------- | ------------------------------------------------------------------------------- |
-| `picomatch` | Alta      | Antes del 2026-11-21 (D-15) | Llegaba por `apps/web > @tailwindcss/vite > vite`; el Frontend actualizó `vite` |
+`picomatch` (alta, GHSA-fc5q-39xc-vjpf), reportada por QA el 2026-11-18 por la ruta
+`apps/web > @tailwindcss/vite > vite`, ya no sale en `pnpm audit`. Sin embargo, no cambió ninguna
+dependencia: `picomatch@4.0.7` sigue en `pnpm-lock.yaml`, y `apps/web/package.json` no cambia desde
+`944d0a5`. Lo que cambió fue el aviso, que dejó de marcar esa versión. Por eso **D-15 (actualizar
+`vite`) no consta como hecha**: la decisión sigue siendo del Frontend.
 
 ## Cómo repetir la medición
 
