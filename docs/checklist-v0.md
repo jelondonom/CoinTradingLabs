@@ -109,7 +109,8 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] 16 tests de propiedades sobre invariantes contables.
 - [x] Lista de defectos con severidad — `docs/qa/defectos.md`.
 - [x] Reglamento actualizado con D-05, D-08, D-12, D-13 y D-19 — `docs/qa/reglamento-anti-trampa.md` v0.2.
-- [ ] `tests/security/`: cuenta ajena, sesión vencida o alterada y payloads manipulados.
+- [x] `tests/security/`: payloads manipulados contra los esquemas v2 — PR #19: `tests/security/payloads-v2.test.ts` y `api-conformance.test.ts` en verde con `pnpm test`; hallazgos DEF-003 y DEF-004 en `docs/qa/defectos.md`.
+- [ ] `tests/security/`: cuenta ajena y sesión vencida o alterada (fase 2, después del login por cookie).
 - [ ] Idempotencia y concurrencia probadas con Postgres.
 - [x] DEF-001 y DEF-002 vueltos a probar y cerrados — `docs/qa/defectos.md` (sección "Cierre"); `tests/properties/engine-defects.test.ts` en verde con `pnpm test`.
 - [ ] E2E con Playwright del flujo completo, en móvil y escritorio.

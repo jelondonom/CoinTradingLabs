@@ -102,8 +102,10 @@ del bloqueo de la fila.
   DEF-003 y DEF-004. `POST /positions/:id/close` y `GET /candles` todavía no existen: se probaron
   solo contra el esquema.
 - Observación sin riesgo: la consulta de velas convierte `limit=0x10` en 16, `1e3` en 1000 y
-  `" 7 "` en 7, siempre dentro de 1–1000. `limit=` vacío se rechaza, aunque `from=` y `to=` vacíos
-  cuentan como no enviados.
+  `" 7 "` en 7, siempre dentro de 1–1000. Hoy `limit=` vacío se rechaza, aunque `from=` y `to=`
+  vacíos cuentan como no enviados. El Arquitecto decidió (2026-11-21) que también cuente como no
+  enviado y use 500; lo cambia en `packages/shared/src/candle.ts`. QA agrega ese caso cuando entre
+  su PR: un `it.fails` antes pondría en rojo el CI del PR del Arquitecto.
 - Abuso: fuerza bruta de códigos de inscripción, ráfagas de órdenes, rutas de administración.
 - Escaneo base con OWASP ZAP y `pnpm audit`, solo contra staging.
 
@@ -153,12 +155,15 @@ del bloqueo de la fila.
 | Backend          | Con D-09, guardar una orden por monto rechazada con `quantity = 0` sin violar el CHECK                                             | R1           |
 | Backend          | Alerta alta de `effect` (vía la CLI de Prisma): override `>= 3.22.1` con el Arquitecto, o aceptación del Gerente (`audit-v0.1.md`) | R15          |
 | Datos de Mercado | Escritura de `last:{symbol}` en Redis y umbral de obsolescencia en una sola fuente                                                 | R4, R10      |
-| Arquitecto       | Dividir el ítem de `tests/security/` del checklist: payloads (fase 1) y sesión (fase 2)                                            | R5, R12      |
-| Arquitecto       | Decidir si `limit=` vacío en `GET /candles` toma el valor por defecto, como `from=`                                                | —            |
-| Arquitecto       | Entorno de staging con datos sintéticos, k6 disponible y respaldos                                                                 | R7, R11, R16 |
+| Arquitecto       | `limit=` vacío en `GET /candles` cuenta como no enviado y usa 500 (decidido; PR del Arquitecto en curso)                           | —            |
+| Arquitecto       | Entorno de staging con datos sintéticos, k6 disponible y respaldos (depende de D-06)                                               | R7, R11, R16 |
 | Arquitecto       | Actualizar `typescript-eslint` a 8.73.0 (cierra la alerta moderada de `minimatch`)                                                 | R15          |
 | Arquitecto       | Cuando no queden altas, `pnpm audit --audit-level high` en el CI                                                                   | R15          |
 | Frontend         | Flujo de órdenes en la web y atributos `data-testid` estables                                                                      | R14          |
+
+Resueltos: Postgres y Redis en el CI, que además falla si un test queda omitido (PR #14); límite
+de peticiones en login y órdenes (PR #17); división del ítem de `tests/security/` del checklist
+(respuesta del Arquitecto del 2026-11-21, aplicada por QA).
 
 ## 7. Decisiones del Gerente
 
