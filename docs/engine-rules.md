@@ -202,8 +202,8 @@ responde `no_price` en lugar de `stale_price` (aprobado por el Gerente el 2026-1
 ## 11. API REST V0
 
 Todas las respuestas de error tienen la forma `{ "error": { "code", "message" } }`, con los
-códigos `invalid_request` (400), `unauthorized` (401), `not_found` (404), `rate_limited` (429)
-e `internal` (500).
+códigos `invalid_request` (400), `unauthorized` (401), `not_found` (404), `invalid_quantity`
+(422), `rate_limited` (429) e `internal` (500).
 
 | Ruta               | Sesión | Qué hace                                                             |
 | ------------------ | ------ | -------------------------------------------------------------------- |
@@ -219,6 +219,14 @@ e `internal` (500).
 - **`POST /orders`** responde 201 con la orden, ejecutada o rechazada. Una orden rechazada no es
   un error HTTP: llega con `status = rejected` y su `rejectReason`. Si el `clientOrderId` ya se
   usó, responde 200 con la orden original.
+- **Cantidad que no cabe en `orders.quantity`** (DEF-003): con más de 8 decimales o con 20 dígitos
+  enteros o más, `DECIMAL(28,8)` no la puede guardar ni como orden rechazada. `POST /orders`
+  responde 422 `invalid_quantity` sin crear la orden: es un rechazo de negocio sin orden guardada,
+  como prevé el contrato v2. El intento queda en el log (`warn`) y en `audit_logs` con
+  `action = 'order.refused'`, `entity_type = 'order_request'`, el `clientOrderId` y la cantidad tal
+  como llegó: es evidencia de la conducta 5 del reglamento (decisión del Gerente, 2026-11-21). Una
+  cantidad inválida que sí cabe (por ejemplo 6 decimales en BTCUSD) sigue el camino normal:
+  orden rechazada guardada y 201.
 - Un campo que el cliente no debe enviar (por ejemplo `price`) se ignora.
 
 ### Límites de peticiones (D-13)
