@@ -150,13 +150,24 @@ prisma/schema.prisma --script` y añade al final lo escrito a mano →
 
 ### Contratos con otros agentes
 
-- Consumes de Arquitecto: `packages/shared` (`orderSchema`, `placeOrderRequestSchema`,
-  `tickSchema`, `INSTRUMENTS`, `ws-account`). `CONTRACT_VERSION = 1`.
+- Consumes de Arquitecto: `packages/shared` con `CONTRACT_VERSION = 2` (PR #11): `MIN_ORDER_USD`,
+  `staleAfterMs(symbol)`, `MAX_TICK_FUTURE_MS`, `apiErrorSchema`, auth, cuenta y `ws-account`.
 - Consumes de Datos de Mercado: `SET last:{symbol}` sin vencimiento con el tick del contrato en
-  JSON; `ts` es la hora de recepción en `market-data` (verificado en
-  `apps/market-data/src/normalizer/binance.ts` y `gateway/redis-tick-publisher.ts`).
+  JSON; `ts` es la hora de recepción en `market-data` (`gateway/redis-tick-publisher.ts`).
 - Entregas a Frontend y QA: `POST /auth/login`, `POST /orders`, `GET /account` (`docs/engine-rules.md` §11).
-- Acuerdo vigente: hacia afuera `stale_price` sale como `no_price` hasta que el contrato lo admita.
+- Entregas al Arquitecto para el despliegue (verificado en el código el 2026-11-20):
+  - Arranque: `pnpm --filter @coin/api build` y `node dist/index.js`. Escucha en
+    `API_HOST:API_PORT` (por defecto `0.0.0.0:3000`) y cierra limpio con SIGTERM.
+  - `GET /health`: 200 `ok` si Postgres y Redis responden; si no, 503 `degraded` (2 s por chequeo).
+  - Migraciones: `pnpm --filter @coin/api db:migrate` (`prisma migrate deploy`). El CLI `prisma` es
+    devDependency y lee `DATABASE_URL` en `apps/api/prisma.config.ts`.
+  - Seed: `node dist/db/seed.js`, sin `tsx`. En producción carga solo los 31 instrumentos; la
+    competencia y las cuentas las crea el script de CSV (tarea 10). Exige las mismas variables.
+  - Obligatorias en producción: `NODE_ENV=production`, `DATABASE_URL`, `REDIS_URL` y
+    `AUTH_TOKEN_SECRET` (mínimo 32 caracteres). Detrás de Caddy, `API_TRUST_PROXY` con su IP o subred.
+- Pedidos abiertos: al Arquitecto, `API_TRUST_PROXY` en producción; a Frontend, mostrar el 429
+  `rate_limited` con `Retry-After`; a QA, validar los números de D-13 (`docs/engine-rules.md` §11).
+- Acuerdo vigente: `stale_price` sale como `no_price` hasta la tarea 3 (errores con `apiErrorSchema`).
 
 ### Flujo de trabajo
 

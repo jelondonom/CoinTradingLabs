@@ -5,6 +5,8 @@ import { createDb } from './db/prisma.js';
 import { loadEnv } from './env.js';
 import { AccountQueue } from './modules/orders/account-queue.js';
 import { RedisTickSource } from './modules/orders/tick-source.js';
+import { RedisCounterStore } from './modules/rate-limit/counter-store.js';
+import { RateLimiter, TradingRateLimits } from './modules/rate-limit/rate-limiter.js';
 
 const env = loadEnv();
 
@@ -21,17 +23,29 @@ const redis = new Redis(env.redisUrl, {
 });
 
 const db = createDb(env.databaseUrl);
+const now = () => Date.now();
+
+// Fail-open: sin Redis la petición pasa (ver `rate-limiter.ts`). El aviso sale como máximo cada
+// 10 s para no inundar el log con una línea por petición durante un corte.
+let lastRateLimitWarningAt = 0;
+const rateLimiter = new RateLimiter(new RedisCounterStore(redis), now, (error) => {
+  if (now() - lastRateLimitWarningAt < 10_000) return;
+  lastRateLimitWarningAt = now();
+  app.log.warn({ err: error }, 'límite de peticiones sin Redis: las peticiones pasan');
+});
 
 const app = await buildApp({
   logLevel: env.logLevel,
+  trustProxy: env.trustProxy,
   trading: {
     db,
     ticks: new RedisTickSource(redis),
     queue: new AccountQueue(),
-    now: () => Date.now(),
+    now,
     staleAfterMs: env.stalePriceAfterMs,
     tokenSecret: env.authTokenSecret,
     tokenTtlMs: env.authTokenTtlMs,
+    rateLimits: new TradingRateLimits(rateLimiter, env.rateLimits),
   },
   checks: {
     postgres: async () => {

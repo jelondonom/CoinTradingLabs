@@ -11,6 +11,8 @@ import { createAccount } from './accounts/create-account.js';
 import { generateEnrollmentCode } from './auth/enrollment-code.js';
 import { AccountQueue } from './orders/account-queue.js';
 import { MemoryTickSource } from './orders/tick-source.js';
+import { MemoryCounterStore } from './rate-limit/counter-store.js';
+import { RateLimiter, TradingRateLimits, type RateLimitConfig } from './rate-limit/rate-limiter.js';
 
 /**
  * Tests de integración contra Postgres real. Usan una base propia (`coin_api_test`) que se
@@ -56,8 +58,15 @@ async function prepareDatabase(): Promise<string | null> {
 
 const databaseUrl = await prepareDatabase();
 
+/** 2027-01-15 08:00 UTC: inicio exacto de una ventana de un minuto y de una de 15 minutos. */
 const START = 1_800_000_000_000;
 const SECRET = 'secreto-de-prueba-secreto-de-prueba';
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Límites con su propio almacén en memoria y el reloj del test. */
+function rateLimits(now: () => number, config: RateLimitConfig): TradingRateLimits {
+  return new TradingRateLimits(new RateLimiter(new MemoryCounterStore(), now, () => {}), config);
+}
 
 describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
   let db: Db;
@@ -88,6 +97,12 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
         staleAfterMs: 30_000,
         tokenSecret: SECRET,
         tokenTtlMs: 60 * 60 * 1000,
+        // Los números propuestos de D-13: los demás tests nunca deben toparse con ellos.
+        rateLimits: rateLimits(() => now, {
+          loginFailuresPer15Min: 100,
+          ordersPerMinute: 30,
+          ordersPerDay: 1000,
+        }),
       },
     });
   });
@@ -414,5 +429,109 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
     ).rejects.toThrow(/solo de inserción/);
     await expect(db.$executeRawUnsafe('TRUNCATE "audit_log"')).rejects.toThrow(/solo de inserción/);
     expect(await expectLedgerMatchesBalance(trader.accountId)).toBe('100000.00');
+  });
+
+  describe('límites de peticiones (D-13)', () => {
+    // App aparte, con límites chicos, su propio reloj y su propio almacén: no afecta a los
+    // demás tests. Cada caso usa IP y cuenta propias.
+    let limited: FastifyInstance;
+    let clock = START;
+
+    beforeAll(async () => {
+      limited = await buildApp({
+        checks: {},
+        trading: {
+          db,
+          ticks,
+          queue: new AccountQueue(),
+          now: () => clock,
+          staleAfterMs: 30_000,
+          tokenSecret: SECRET,
+          tokenTtlMs: 7 * DAY_MS,
+          rateLimits: rateLimits(() => clock, {
+            loginFailuresPer15Min: 3,
+            ordersPerMinute: 2,
+            ordersPerDay: 3,
+          }),
+        },
+      });
+    });
+
+    afterAll(async () => {
+      await limited?.close();
+    });
+
+    async function enroll(): Promise<string> {
+      const enrollmentCode = generateEnrollmentCode();
+      await createAccount(db, {
+        competitionId,
+        displayName: 'Trader con límites',
+        enrollmentCode,
+        now: new Date(clock),
+      });
+      return enrollmentCode;
+    }
+
+    function login(payload: Record<string, unknown>, remoteAddress: string) {
+      return limited.inject({ method: 'POST', url: '/auth/login', remoteAddress, payload });
+    }
+
+    it('login: tras 3 fallos la IP recibe 429 aun con un código válido, hasta que pasa la ventana', async () => {
+      const code = await enroll();
+      const ip = '203.0.113.7';
+      // Los logins exitosos no cuentan.
+      for (let i = 0; i < 5; i += 1) expect((await login({ code }, ip)).statusCode).toBe(200);
+      expect((await login({}, ip)).statusCode).toBe(400);
+      expect((await login({ code: 'XXXXX-XXXX1' }, ip)).statusCode).toBe(401);
+      expect((await login({ code: 'XXXXX-XXXX2' }, ip)).statusCode).toBe(401);
+
+      const blocked = await login({ code }, ip);
+      expect(blocked.statusCode).toBe(429);
+      expect(blocked.json().error.code).toBe('rate_limited');
+      expect(blocked.headers['retry-after']).toBe('900');
+      // Otra IP no se ve afectada.
+      expect((await login({ code }, '203.0.113.8')).statusCode).toBe(200);
+
+      clock += 15 * 60 * 1000;
+      expect((await login({ code }, ip)).statusCode).toBe(200);
+    });
+
+    it('órdenes: 429 por minuto y luego por día; las peticiones sin sesión no cuentan', async () => {
+      const session = await login({ code: await enroll() }, '203.0.113.9');
+      const headers = { authorization: `Bearer ${session.json().token}` };
+      const placeOrderAs = (auth?: { authorization: string }) =>
+        limited.inject({
+          method: 'POST',
+          url: '/orders',
+          headers: auth,
+          payload: {
+            clientOrderId: randomUUID(),
+            symbol: 'BTCUSD',
+            side: 'buy',
+            type: 'market',
+            quantity: 0.001,
+          },
+        });
+
+      for (let i = 0; i < 3; i += 1) expect((await placeOrderAs()).statusCode).toBe(401);
+
+      // 201 aunque el motor la rechace: el límite cuenta peticiones, no ejecuciones.
+      expect((await placeOrderAs(headers)).statusCode).toBe(201);
+      expect((await placeOrderAs(headers)).statusCode).toBe(201);
+      const perMinute = await placeOrderAs(headers);
+      expect(perMinute.statusCode).toBe(429);
+      expect(perMinute.json().error.code).toBe('rate_limited');
+      expect(perMinute.headers['retry-after']).toBe('60');
+
+      clock += 60 * 1000;
+      expect((await placeOrderAs(headers)).statusCode).toBe(201);
+      const perDay = await placeOrderAs(headers);
+      expect(perDay.statusCode).toBe(429);
+      const nextMidnight = Math.ceil(clock / DAY_MS) * DAY_MS;
+      expect(perDay.headers['retry-after']).toBe(String((nextMidnight - clock) / 1000));
+
+      clock = nextMidnight;
+      expect((await placeOrderAs(headers)).statusCode).toBe(201);
+    });
   });
 });
