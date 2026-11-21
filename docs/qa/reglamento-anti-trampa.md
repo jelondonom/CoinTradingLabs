@@ -2,7 +2,9 @@
 
 - Estado: **borrador de QA, sin aprobar**. Las conductas prohibidas, las sanciones y el proceso
   los decide el Gerente General. Los puntos marcados con **[Decide el Gerente]** están abiertos.
-- Versión: 0.2, del 2026-11-18. Versión anterior: 0.1, del 2026-11-16.
+- Versión: 0.3, del 2026-11-18. Versión anterior: 0.2, del mismo día. La 0.3 marca como
+  implementados el mínimo, el redondeo en contra y el tick del futuro (DEF-001 y DEF-002
+  cerrados) y agrega la excepción de cierre total.
 - Reglas de la plataforma: `docs/engine-rules.md`. Decisiones: `docs/decisiones-gerente.md`.
 
 ### Decisiones del Gerente aplicadas en esta versión
@@ -81,16 +83,16 @@ Se aplican por igual a todas las cuentas. Los límites de peticiones los propone
 valida QA con pruebas de carga (D-13); los valores de QA de la versión 0.1 quedan como
 referencia.
 
-| Control                               | Valor                                                    | Estado                       |
-| ------------------------------------- | -------------------------------------------------------- | ---------------------------- |
-| Órdenes por cuenta                    | Propone el Backend. Referencia QA: 5/s y 2.000 por día   | No implementado              |
-| Intentos de ingreso por IP            | Propone el Backend. Referencia QA: 10 por minuto         | No implementado              |
-| Monto mínimo por orden (D-01)         | 10 USD; por debajo se rechaza                            | No implementado (DEF-001)    |
-| Redondeo en contra del participante   | Compra hacia arriba al centavo; venta hacia abajo (D-01) | No implementado (DEF-001)    |
-| Órdenes solo con precio fresco (D-11) | Umbral por símbolo definido en `packages/shared`         | Parcial: hoy 30 s para todos |
-| Tick con fecha futura (D-11)          | Más de 2 s en el futuro se considera inválido            | No implementado (DEF-002)    |
-| Órdenes solo dentro de la ventana     | Entre el inicio y el cierre de la competencia            | Implementado                 |
-| Sesiones simultáneas por cuenta       | **[Decide el Gerente]**                                  | No implementado              |
+| Control                               | Valor                                                                                | Estado                         |
+| ------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------ |
+| Órdenes por cuenta                    | Propone el Backend. Referencia QA: 5/s y 2.000 por día                               | No implementado                |
+| Intentos de ingreso por IP            | Propone el Backend. Referencia QA: 10 por minuto                                     | No implementado                |
+| Monto mínimo por orden (D-01)         | 10 USD; por debajo se rechaza. Vender toda la posición se permite aunque valga menos | Implementado (DEF-001 cerrado) |
+| Redondeo en contra del participante   | Compra hacia arriba al centavo; venta hacia abajo (D-01)                             | Implementado (DEF-001 cerrado) |
+| Órdenes solo con precio fresco (D-11) | Umbral por símbolo definido en `packages/shared`                                     | Parcial: hoy 30 s para todos   |
+| Tick con fecha futura (D-11)          | Más de 2 s en el futuro se considera inválido                                        | Implementado (DEF-002 cerrado) |
+| Órdenes solo dentro de la ventana     | Entre el inicio y el cierre de la competencia                                        | Implementado                   |
+| Sesiones simultáneas por cuenta       | **[Decide el Gerente]**                                                              | No implementado                |
 
 ## 6. Señales que QA vigila
 

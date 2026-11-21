@@ -5,13 +5,16 @@
 - QA no corrige: reporta con pasos para reproducir. Un defecto se cierra solo después de volver
   a probarlo.
 
-| ID      | Severidad | Módulo | Estado  | Título                                               |
-| ------- | --------- | ------ | ------- | ---------------------------------------------------- |
-| DEF-001 | Alta      | Motor  | Abierto | El redondeo a centavos por orden crea dinero         |
-| DEF-002 | Media     | Motor  | Abierto | Un tick con fecha futura nunca se considera obsoleto |
+| ID      | Severidad | Módulo | Estado               | Título                                               |
+| ------- | --------- | ------ | -------------------- | ---------------------------------------------------- |
+| DEF-001 | Alta      | Motor  | Cerrado (2026-11-18) | El redondeo a centavos por orden crea dinero         |
+| DEF-002 | Media     | Motor  | Cerrado (2026-11-18) | Un tick con fecha futura nunca se considera obsoleto |
 
 Probado el 2026-11-16 sobre la rama `feat/api-engine-v0` (commit `9dc48f8`). Vuelto a probar el
-mismo día sobre `main` (commit `ed77101`), ya con el motor integrado: los dos siguen abiertos.
+mismo día sobre `main` (commit `ed77101`), ya con el motor integrado: los dos seguían abiertos.
+Vueltos a probar el 2026-11-18 sobre la rama `qa/cierre-def-001-def-002`, que reúne la corrección
+de DEF-001 (`37fc65a`, ajustada al contrato v2 en `11bb4c5`), la de DEF-002 (`0fc8d0f`, ya en
+`main`) y `main` al día: los dos se cierran. Detalle en la sección "Cierre" de cada uno.
 
 ## DEF-001: el redondeo a centavos por orden crea dinero
 
@@ -49,6 +52,24 @@ el equity).
 en contra del participante (compra hacia arriba, venta hacia abajo), una comisión mínima por
 orden, o un límite de órdenes por cuenta. El límite solo reduce el daño; no lo elimina.
 
+**Cierre** (2026-11-18)
+
+- Regla del Gerente (D-01): la compra redondea el monto hacia arriba al centavo y la venta hacia
+  abajo; una orden de menos de 10 USD se rechaza con `below_minimum`, salvo la venta que cierra
+  toda la posición. Corrección del Backend en `37fc65a` (`docs/engine-rules.md` §4 y §5).
+- El caso original ya no sirve para probar el redondeo: el mínimo rechaza cada compra de
+  0,2849 USD. Se queda como prueba del mínimo: las 1.000 compras dan `below_minimum` y el saldo
+  sigue en 100.000,00.
+- Caso que sí distingue el redondeo: 100 compras de 37 TRX a 0,2849 (10,5413 c/u) y una venta de
+  3.700. Con el motor corregido cada compra cuesta 10,55 y el saldo final es 99.999,13. Con el
+  motor viejo (`main` en `6325ade`) el mismo caso da 100.000,13.
+- Propiedad general (a precio fijo, ninguna secuencia sube el equity): 500 corridas en verde. La
+  guardia G2 confirma que ejecuta órdenes: 1.113 compras y 543 ventas, y 529 `below_minimum`.
+- Propiedades E2 (techo y piso), E4 (un ciclo cuesta el spread más menos de 2 centavos) y R1
+  (orden de los rechazos con `below_minimum`) en verde. G1: 125 `below_minimum`.
+- Desde `11bb4c5` el motor lee el mínimo de `MIN_ORDER_USD` (`@coin/shared`) y la API responde
+  `below_minimum` tal cual (`toPublicRejectReason` en `apps/api/src/modules/dto.ts` y su test).
+
 ## DEF-002: un tick con fecha futura nunca se considera obsoleto
 
 - **Severidad**: Media. Necesita un tick mal fechado o relojes desalineados; un participante no
@@ -68,8 +89,19 @@ sirviendo para ejecutar órdenes durante la hora siguiente más el umbral, aunqu
 
 **Evidencia**: `tests/properties/engine-defects.test.ts`, caso `DEF-002`, marcado con `it.fails`.
 
+**Cierre** (2026-11-18)
+
+- Regla del Gerente (D-11): un tick con fecha más de 2 s posterior a la hora del servidor es
+  obsoleto. Corrección del Backend en `0fc8d0f` (PR #10), que también pasó el `it.fails` a `it`
+  por orden del Gerente.
+- Tick fechado 1 h en el futuro: `stale_price` en 500 corridas.
+- Bordes de D-11: +2.000 ms se ejecuta y +2.001 ms da `stale_price`, en 500 corridas.
+- El arnés modela ahora los ticks del futuro: R1 y R2 los incluyen. G1: 155 órdenes ejecutadas
+  con ticks de hasta 2 s en el futuro y 135 rechazadas con `stale_price` por venir de más de 2 s.
+
 ## Cómo se cierra un defecto
 
 1. El responsable corrige. El caso `it.fails` correspondiente se pone en rojo.
 2. QA vuelve a probar, quita `it.fails` para que el caso quede como test normal y actualiza la
    tabla de este archivo.
+3. El caso se queda en `tests/` como prueba de regresión.
