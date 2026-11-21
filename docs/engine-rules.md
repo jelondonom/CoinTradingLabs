@@ -83,7 +83,7 @@ Notas:
 - **Tick del futuro** (D-11, DEF-002): un tick con fecha más de 2 segundos posterior a la hora del
   servidor también es obsoleto (`MAX_FUTURE_SKEW_MS`). Los 2 segundos toleran relojes un poco
   desalineados; sin este límite, un tick mal fechado seguiría sirviendo aunque el feed se caiga.
-- **Monto mínimo** (D-01): 10 USD por orden (`MIN_ORDER_USD`), comparado contra el `notional` ya
+- **Monto mínimo** (D-01): 10 USD por orden (`MIN_ORDER_USD`, de `@coin/shared`), comparado contra el `notional` ya
   redondeado en su dirección. Una venta de toda la posición siempre se permite: si no, una
   posición que vale menos de 10 USD quedaría atrapada (decisión del Gerente, 2026-11-18). Una
   venta sin posición y por menos de 10 USD se rechaza con `below_minimum`, porque la fila 6 va
@@ -180,23 +180,23 @@ Los tests del motor y las pruebas de QA deben comprobar siempre:
 Solicitudes al Agente Arquitecto sobre `packages/shared`. El Agente Backend no cambia esos
 archivos.
 
-| N.º | Solicitud                                                                                                                               | Afecta a         |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| 1   | Agregar `stale_price` a `orderRejectReasonSchema`                                                                                       | Frontend, QA     |
-| 2   | Volver obligatorio `clientOrderId` en `placeOrderRequestSchema`                                                                         | Frontend, QA     |
-| 3   | Definir con Datos de Mercado la llave y el formato del último tick en Redis (propuesta: `last:{symbol}`)                                | Datos de Mercado |
-| 4   | Publicar el umbral de precio obsoleto por símbolo en un lugar que el motor pueda leer                                                   | Datos de Mercado |
-| 5   | Confirmar que una posición larga se valora al `bid`. El comentario de `tickSchema` dice que `last` valora                               | Frontend         |
-| 6   | Confirmar `quantityPrecision` del catálogo: el motor acepta los valores actuales de `INSTRUMENTS` sin cambio                            | Datos de Mercado |
-| 7   | Mover al contrato el login (`POST /auth/login`), la respuesta de `GET /account` y el formato de error                                   | Frontend, QA     |
-| 8   | Agregar Postgres al CI para que corran los tests de integración de la API                                                               | QA               |
-| 9   | Publicar en `shared`, junto a `staleAfterMs`, la tolerancia de tick futuro `MAX_FUTURE_SKEW_MS` = 2 s (D-11). Hoy vive solo en el motor | Datos de Mercado |
-| 10  | Agregar `below_minimum` a los motivos de rechazo y publicar `MIN_ORDER_USD` = 10 (D-01). Ya está en el borrador del contrato v2         | Frontend, QA     |
+| N.º | Solicitud                                                                                                                                                                                                                                         | Afecta a         |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| 1   | Agregar `stale_price` a `orderRejectReasonSchema`                                                                                                                                                                                                 | Frontend, QA     |
+| 2   | Volver obligatorio `clientOrderId` en `placeOrderRequestSchema`                                                                                                                                                                                   | Frontend, QA     |
+| 3   | Definir con Datos de Mercado la llave y el formato del último tick en Redis (propuesta: `last:{symbol}`)                                                                                                                                          | Datos de Mercado |
+| 4   | Publicar el umbral de precio obsoleto por símbolo en un lugar que el motor pueda leer                                                                                                                                                             | Datos de Mercado |
+| 5   | Confirmar que una posición larga se valora al `bid`. El comentario de `tickSchema` dice que `last` valora                                                                                                                                         | Frontend         |
+| 6   | Confirmar `quantityPrecision` del catálogo: el motor acepta los valores actuales de `INSTRUMENTS` sin cambio                                                                                                                                      | Datos de Mercado |
+| 7   | Mover al contrato el login (`POST /auth/login`), la respuesta de `GET /account` y el formato de error                                                                                                                                             | Frontend, QA     |
+| 8   | Agregar Postgres al CI para que corran los tests de integración de la API                                                                                                                                                                         | QA               |
+| 9   | Publicar en `shared`, junto a `staleAfterMs`, la tolerancia de tick futuro (D-11). Cumplida en el contrato v2: `MAX_TICK_FUTURE_MS` en `price-freshness.ts`. El motor la adopta en T7; hoy usa su propia `MAX_FUTURE_SKEW_MS`, con el mismo valor | Datos de Mercado |
+| 10  | Agregar `below_minimum` a los motivos de rechazo y publicar `MIN_ORDER_USD` = 10 (D-01). Cumplida en el contrato v2; el motor y la API ya los usan                                                                                                | Frontend, QA     |
 
-Hasta que las solicitudes 1 y 10 estén en el contrato, la base de datos guarda el motivo real y la
-API responde de forma temporal `no_price` en lugar de `stale_price` (aprobado por el Gerente el
-2026-11-16) e `invalid_quantity` en lugar de `below_minimum` (plan de T2, aprobado por el
-Gerente el 2026-11-18). La conversión está en un solo lugar: `toPublicRejectReason`, en
+El contrato v2 (PR #11, `CONTRACT_VERSION = 2`) cumple también las solicitudes 1, 2, 4 y 7. El
+motor y la API las adoptan en las tareas T5–T7. Hasta T7, la base guarda el motivo real y la API
+responde `no_price` en lugar de `stale_price` (aprobado por el Gerente el 2026-11-16).
+`below_minimum` sale tal cual. La conversión está en un solo lugar: `toPublicRejectReason`, en
 `apps/api/src/modules/dto.ts`.
 
 ## 11. API REST V0

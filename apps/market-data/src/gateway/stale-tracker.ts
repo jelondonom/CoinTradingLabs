@@ -1,24 +1,18 @@
-import { SYMBOLS, type InstrumentSymbol, type SymbolStatus } from '@coin/shared';
+import { SYMBOLS, staleAfterMs, type InstrumentSymbol, type SymbolStatus } from '@coin/shared';
 
 /**
- * Segundos sin actualización a partir de los cuales el precio de un símbolo se considera
- * desactualizado. Binance solo envía un mensaje cuando cambia el bid o el ask, así que un mercado
- * tranquilo calla sin estar caído: por eso el umbral es por símbolo.
- * Valores PROVISIONALES, medidos el 2026-11-16 con la bolsa de EE.UU. cerrada.
+ * Arma el estado de un símbolo. Único lugar donde se decide `marketOpen` (D-05): todo opera 24/7 y
+ * un símbolo está cerrado solo si está deshabilitado o su precio está obsoleto. Hoy market-data no
+ * tiene fuente de "deshabilitado", así que solo cuenta el precio obsoleto.
  */
-const DEFAULT_STALE_AFTER_MS = 30_000;
-const STALE_AFTER_MS: Partial<Record<InstrumentSymbol, number>> = {
-  EURUSD: 60_000,
-  NGASUSD: 60_000,
-};
-
-export function staleAfterMs(symbol: InstrumentSymbol): number {
-  return STALE_AFTER_MS[symbol] ?? DEFAULT_STALE_AFTER_MS;
+export function symbolStatus(symbol: InstrumentSymbol, stale: boolean, ts: number): SymbolStatus {
+  return { symbol, stale, marketOpen: !stale, ts };
 }
 
 export type StaleTrackerOptions = {
   onChange: (status: SymbolStatus) => void;
   symbols?: readonly InstrumentSymbol[];
+  /** Umbral de precio obsoleto por símbolo. Por defecto, `staleAfterMs` de `@coin/shared` (D-11). */
   thresholdMs?: (symbol: InstrumentSymbol) => number;
   checkIntervalMs?: number;
   now?: () => number;
@@ -77,13 +71,12 @@ export class StaleTracker {
   status(symbol: InstrumentSymbol): SymbolStatus {
     const state = this.states.get(symbol);
     const stale = state?.stale ?? true;
-    // D-05: todo opera 24/7; cerrado solo si el precio está obsoleto.
-    return { symbol, stale, marketOpen: !stale, ts: state?.changedAt ?? this.now() };
+    return symbolStatus(symbol, stale, state?.changedAt ?? this.now());
   }
 
   private change(symbol: InstrumentSymbol, state: State, stale: boolean): void {
     state.stale = stale;
     state.changedAt = this.now();
-    this.onChange({ symbol, stale, marketOpen: !stale, ts: state.changedAt });
+    this.onChange(symbolStatus(symbol, stale, state.changedAt));
   }
 }

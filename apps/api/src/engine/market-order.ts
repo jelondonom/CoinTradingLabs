@@ -1,3 +1,4 @@
+import { MIN_ORDER_USD } from '@coin/shared';
 import {
   ZERO,
   dec,
@@ -18,12 +19,6 @@ export type RejectReason =
   | 'below_minimum'
   | 'insufficient_funds'
   | 'insufficient_position';
-
-/**
- * Monto mínimo por orden en USD (D-01). TODO(contrato v2): leer `MIN_ORDER_USD` de
- * `@coin/shared` cuando `CONTRACT_VERSION = 2` esté en `main`.
- */
-export const MIN_ORDER_USD = 10;
 
 /** Adelanto máximo tolerado de un tick sobre la hora del servidor, en milisegundos (D-11). */
 export const MAX_FUTURE_SKEW_MS = 2_000;
@@ -126,9 +121,10 @@ export function executeMarketOrder(input: MarketOrderInput): MarketOrderResult {
   // a precio fijo crea dinero (DEF-001). Compra al techo del centavo, venta al piso.
   const notional =
     side === 'buy' ? roundMoneyUp(quantity.times(ask)) : roundMoneyDown(quantity.times(bid));
-  // Cerrar toda la posición siempre se permite: si no, una posición de menos de 10 USD
+  // Cerrar toda la posición siempre se permite: si no, una posición que vale menos del mínimo
   // quedaría atrapada (decisión del Gerente, 2026-11-18).
   const closesPosition = side === 'sell' && quantity.eq(held);
+  // El mínimo viene del contrato (`MIN_ORDER_USD`, D-01): la web y el motor usan el mismo valor.
   if (notional.lt(MIN_ORDER_USD) && !closesPosition) return reject('below_minimum');
 
   if (side === 'buy') {

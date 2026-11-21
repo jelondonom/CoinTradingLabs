@@ -14,6 +14,7 @@ import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
 import { CandleAggregator } from './candle-aggregator.js';
+import { symbolStatus } from './gateway/stale-tracker.js';
 
 type Subscription = {
   symbols: Set<InstrumentSymbol>;
@@ -40,7 +41,7 @@ export async function buildApp(options: MarketDataAppOptions = {}): Promise<Mark
   const statuses = new Map<InstrumentSymbol, SymbolStatus>();
   /** Sin estado publicado todavía no hay precio: el símbolo se informa como desactualizado. */
   const statusOf = (symbol: InstrumentSymbol): SymbolStatus =>
-    statuses.get(symbol) ?? { symbol, stale: true, marketOpen: false, ts: startedAt };
+    statuses.get(symbol) ?? symbolStatus(symbol, true, startedAt);
   const server = Fastify({
     logger: options.logLevel ? { level: options.logLevel } : false,
   });

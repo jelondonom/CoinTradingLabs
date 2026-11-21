@@ -2,6 +2,7 @@
 
 - Responsable: Agente QA + Seguridad. Reporta al Gerente General.
 - Versión: 1, del 2026-11-16. Escrito sobre la rama `feat/api-engine-v0` (commit `9dc48f8`).
+  Actualizado el 2026-11-18 con el cierre de DEF-001 y DEF-002.
 - Documentos hermanos: [`defectos.md`](defectos.md) y
   [`reglamento-anti-trampa.md`](reglamento-anti-trampa.md).
 
@@ -30,10 +31,10 @@ del congreso.
 
 | N.º | Riesgo                                                      | Prioridad | Cómo se prueba                        | Estado                          |
 | --- | ----------------------------------------------------------- | --------- | ------------------------------------- | ------------------------------- |
-| R1  | Dinero creado o perdido por redondeo                        | P0        | Propiedades sobre el motor            | **DEF-001 abierto**             |
+| R1  | Dinero creado o perdido por redondeo                        | P0        | Propiedades sobre el motor            | DEF-001 cerrado (D-01)          |
 | R2  | El saldo no coincide con el libro contable                  | P0        | Propiedades; SQL sobre Postgres       | Motor en verde; base pendiente  |
 | R3  | El ranking mostrado no coincide con el reconstruido         | P0        | `pnpm audit:leaderboard`              | Sin ranking todavía             |
-| R4  | Órdenes ejecutadas a un precio obsoleto o que nadie publicó | P0        | Propiedades; resiliencia del feed     | **DEF-002 abierto**             |
+| R4  | Órdenes ejecutadas a un precio obsoleto o que nadie publicó | P0        | Propiedades; resiliencia del feed     | DEF-002 cerrado; feed pendiente |
 | R5  | Una cuenta lee o modifica datos de otra                     | P0        | `tests/security/`                     | Pendiente                       |
 | R6  | Órdenes duplicadas por reintentos o concurrencia            | P0        | Integración con Postgres; ráfagas k6  | Pendiente                       |
 | R7  | Caída o degradación con 500 usuarios                        | P0        | k6: WebSocket y ráfagas de órdenes    | Escenario listo, sin ejecutar   |
@@ -51,22 +52,29 @@ del congreso.
 
 Son hipótesis. Ninguna es un defecto hasta que un test la confirme.
 
-- `clientOrderId` es opcional: un reintento sin él duplica la orden (solicitud 2 del Backend).
+- `clientOrderId` era opcional: un reintento sin él duplicaba la orden. El contrato v2, ya en
+  `main`, lo vuelve obligatorio; QA lo prueba contra la API en T3.
 - No hay límite de peticiones en `POST /auth/login` ni en `POST /orders`.
 - El WebSocket de mercado es público y no limita conexiones ni suscripciones por cliente.
-- La API responde `no_price` cuando el motivo real es `stale_price` (temporal, aprobado).
+- La API responde `no_price` cuando el motivo real es `stale_price` (temporal, aprobado; el
+  Backend lo retira en su tarea T7). `below_minimum` ya sale tal cual desde `11bb4c5`.
 - El CI no tiene Postgres: los tests de integración de la API no corren (solicitud 8).
-- No hay restricción única que impida dos posiciones abiertas del mismo símbolo en una cuenta;
-  depende del bloqueo de la fila.
 - `GET /account` valora con el último tick aunque sea obsoleto, sin avisarlo en la respuesta.
+
+Descartado al revisar el código: dos posiciones abiertas del mismo símbolo en una cuenta. Las
+impide el índice único parcial `positions_open_account_symbol_key` sobre (`account_id`, `symbol`)
+con `closed_at IS NULL` (`apps/api/prisma/migrations/20261116000000_init/migration.sql`), además
+del bloqueo de la fila.
 
 ## 4. Pruebas por módulo
 
 ### 4.1 Motor de trading (Agente Backend)
 
 - **Propiedades** (`tests/properties/`, hechas): 16 propiedades con `fast-check` sobre el motor
-  real, con semilla fija. Cubren las invariantes 1 a 5 de `docs/engine-rules.md`, precio de
-  ejecución, redondeo, orden de los rechazos y valoración.
+  real, con semilla fija, 6 casos de regresión de DEF-001 y DEF-002 y un chequeo (C1) de que las
+  constantes del oráculo coinciden con `@coin/shared`. Cubren las invariantes 1 a 5 de
+  `docs/engine-rules.md`, precio de ejecución, redondeo en contra del participante y mínimo de
+  10 USD (D-01), ticks del futuro (D-11), orden de los rechazos y valoración.
 - **Idempotencia y concurrencia** (pendiente): la invariante 6 vive en `place-order.ts` y
   necesita Postgres. Mismo `clientOrderId` repetido, en paralelo y desde dos procesos.
 - **Reconciliación en base** (pendiente): consultas SQL en `tests/audit/` que comparan
@@ -105,34 +113,37 @@ Son hipótesis. Ninguna es un defecto hasta que un test la confirme.
 
 ## 5. Criterios Go/No-Go
 
-| Criterio                                                 | Estado          |
-| -------------------------------------------------------- | --------------- |
-| 500 usuarios simulados 2 horas sin errores               | Sin probar      |
-| Confirmación de orden en menos de 200 ms (p95) con carga | Sin probar      |
-| Cero defectos Críticos o Altos abiertos                  | **No**: DEF-001 |
-| Restauración de respaldo verificada                      | Sin probar      |
-| Recuperación tras caída del feed verificada              | Sin probar      |
-| Auditoría del ranking sin diferencias                    | Sin probar      |
-| Simulacro con usuarios reales y hallazgos cerrados       | Sin fecha       |
+| Criterio                                                 | Estado            |
+| -------------------------------------------------------- | ----------------- |
+| 500 usuarios simulados 2 horas sin errores               | Sin probar        |
+| Confirmación de orden en menos de 200 ms (p95) con carga | Sin probar        |
+| Cero defectos Críticos o Altos abiertos                  | Sí, al 2026-11-18 |
+| Restauración de respaldo verificada                      | Sin probar        |
+| Recuperación tras caída del feed verificada              | Sin probar        |
+| Auditoría del ranking sin diferencias                    | Sin probar        |
+| Simulacro con usuarios reales y hallazgos cerrados       | Sin fecha         |
 
 ## 6. Lo que QA necesita de cada agente
 
 | De               | Qué                                                                                | Para         |
 | ---------------- | ---------------------------------------------------------------------------------- | ------------ |
-| Backend          | Corregir DEF-001 y DEF-002                                                         | R1, R4       |
+| Backend          | Responder `stale_price` tal cual, sin pasarlo a `no_price` (su tarea T7)           | R4           |
 | Backend          | Límite de peticiones en login y órdenes; ruta del ranking                          | R3, R9       |
 | Datos de Mercado | Escritura de `last:{symbol}` en Redis y umbral de obsolescencia en una sola fuente | R4, R10      |
-| Arquitecto       | Postgres en el CI; `clientOrderId` obligatorio y `stale_price` en el contrato      | R6           |
+| Arquitecto       | Postgres en el CI (`clientOrderId` y `stale_price` ya están en el contrato v2)     | R6           |
 | Arquitecto       | Entorno de staging con datos sintéticos, k6 disponible y respaldos                 | R7, R11, R16 |
 | Frontend         | Flujo de órdenes en la web y atributos `data-testid` estables                      | R14          |
 
 ## 7. Decisiones del Gerente
 
-1. Regla contra el redondeo (DEF-001): monto mínimo, redondeo en contra, comisión o límite.
-2. Reglamento del Challenge: conductas prohibidas y sanciones (ver el borrador).
-3. Cómo se verifica una persona por cuenta.
-4. Quién aprueba el ranking final antes de premiar.
-5. Fecha y participantes del simulacro general, al menos dos semanas antes del congreso.
+Las ya tomadas están en `docs/decisiones-gerente.md` (por ejemplo D-01 para el redondeo y D-19
+para la aprobación del ranking). Siguen abiertas:
+
+1. Sanciones y proceso de descargos del reglamento.
+2. Cómo se verifica una persona por cuenta.
+3. Fecha y participantes del simulacro general, al menos dos semanas antes del congreso.
+4. Agregar a D-01 la excepción de cierre total por menos de 10 USD, que hoy solo consta en
+   `docs/engine-rules.md`.
 
 ## 8. Reglas de trabajo de QA
 
