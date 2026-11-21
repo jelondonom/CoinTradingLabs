@@ -90,6 +90,19 @@ enum LeaderboardCutoff {
   @@map("leaderboard_cutoff")
 }
 
+/// Intervalos de vela. Mismos valores que `CANDLE_INTERVALS` de `@coin/shared`. Prisma no acepta
+/// identificadores que empiecen con dígito, así que cada valor lleva su nombre en la base.
+enum CandleInterval {
+  m1  @map("1m")
+  m5  @map("5m")
+  m15 @map("15m")
+  h1  @map("1h")
+  h4  @map("4h")
+  d1  @map("1d")
+
+  @@map("candle_interval")
+}
+
 /// Asistente del evento. Ingresa con un código de inscripción, sin contraseña.
 /// `loginId` guarda el SHA-256 del código, nunca el código: el código es la credencial.
 model User {
@@ -165,8 +178,30 @@ model Instrument {
   orders    Order[]
   positions Position[]
   fills     Fill[]
+  candles   Candle[]
 
   @@map("instruments")
+}
+
+/// Vela OHLCV terminada de un símbolo en un intervalo (D-18). La estructura es del Backend; la
+/// escribe y la lee Datos de Mercado con SQL directo. Contrato y reglas de uso en
+/// `prisma/README.md`. Las reglas CHECK están al final de la migración `20261121000000_candles`.
+model Candle {
+  symbol   String
+  interval CandleInterval
+  /// Inicio de la vela, alineado al intervalo desde la época UTC.
+  openTime DateTime       @map("open_time") @db.Timestamptz(3)
+  open     Decimal        @db.Decimal(20, 8)
+  high     Decimal        @db.Decimal(20, 8)
+  low      Decimal        @db.Decimal(20, 8)
+  close    Decimal        @db.Decimal(20, 8)
+  /// Volumen en unidades del activo base, como el campo 5 de los klines de Binance.
+  volume   Decimal        @db.Decimal(28, 8)
+
+  instrument Instrument @relation(fields: [symbol], references: [symbol])
+
+  @@id([symbol, interval, openTime])
+  @@map("candles")
 }
 
 model Order {

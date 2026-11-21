@@ -1,12 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync, readdirSync } from 'node:fs';
 import { accountSchema, orderSchema, positionSchema } from '@coin/shared';
 import type { FastifyInstance } from 'fastify';
-import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../app.js';
 import { createDb, type Db } from '../db/prisma.js';
 import { seedInstruments } from '../db/seed-instruments.js';
+import { prepareTestDatabase } from '../testing/test-database.js';
 import { createAccount } from './accounts/create-account.js';
 import { generateEnrollmentCode } from './auth/enrollment-code.js';
 import { AccountQueue } from './orders/account-queue.js';
@@ -15,48 +14,11 @@ import { MemoryCounterStore } from './rate-limit/counter-store.js';
 import { RateLimiter, TradingRateLimits, type RateLimitConfig } from './rate-limit/rate-limiter.js';
 
 /**
- * Tests de integración contra Postgres real. Usan una base propia (`coin_api_test`) que se
- * recrea en cada corrida, así que no tocan los datos de desarrollo.
- * Si no hay Postgres disponible (por ejemplo en el CI actual), se omiten.
+ * Tests de integración contra Postgres real, en una base propia (`coin_api_test`) que se recrea
+ * en cada corrida: no tocan los datos de desarrollo. En el CI siempre corren (Postgres y Redis
+ * en `ci.yml` desde el PR #14); en local hace falta `pnpm infra:up`.
  */
-const ADMIN_URL =
-  process.env.TEST_DATABASE_ADMIN_URL ?? 'postgresql://coin:coin@localhost:5432/coin';
-const TEST_DATABASE = 'coin_api_test';
-const MIGRATIONS = new URL('../../prisma/migrations/', import.meta.url);
-
-async function prepareDatabase(): Promise<string | null> {
-  const admin = new pg.Client({ connectionString: ADMIN_URL, connectionTimeoutMillis: 1500 });
-  try {
-    await admin.connect();
-  } catch {
-    return null;
-  }
-  try {
-    await admin.query(`DROP DATABASE IF EXISTS ${TEST_DATABASE} WITH (FORCE)`);
-    await admin.query(`CREATE DATABASE ${TEST_DATABASE}`);
-  } finally {
-    await admin.end();
-  }
-
-  const url = new URL(ADMIN_URL);
-  url.pathname = `/${TEST_DATABASE}`;
-  const client = new pg.Client({ connectionString: url.href });
-  await client.connect();
-  try {
-    const folders = readdirSync(MIGRATIONS, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .sort();
-    for (const folder of folders) {
-      await client.query(readFileSync(new URL(`${folder}/migration.sql`, MIGRATIONS), 'utf8'));
-    }
-  } finally {
-    await client.end();
-  }
-  return url.href;
-}
-
-const databaseUrl = await prepareDatabase();
+const databaseUrl = await prepareTestDatabase('coin_api_test');
 
 /** 2027-01-15 08:00 UTC: inicio exacto de una ventana de un minuto y de una de 15 minutos. */
 const START = 1_800_000_000_000;
