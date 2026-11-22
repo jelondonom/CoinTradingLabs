@@ -29,24 +29,24 @@ sean correctos y que el ranking sea justo. El evento dura dos días y no hay seg
 Prioridad = impacto × probabilidad. P0 bloquea el Go; P1 se cierra antes del simulacro; P2 antes
 del congreso.
 
-| N.º | Riesgo                                                      | Prioridad | Cómo se prueba                        | Estado                           |
-| --- | ----------------------------------------------------------- | --------- | ------------------------------------- | -------------------------------- |
-| R1  | Dinero creado o perdido por redondeo                        | P0        | Propiedades sobre el motor            | DEF-001 cerrado (D-01)           |
-| R2  | El saldo no coincide con el libro contable                  | P0        | Propiedades; SQL sobre Postgres       | Motor en verde; base pendiente   |
-| R3  | El ranking mostrado no coincide con el reconstruido         | P0        | `pnpm audit:leaderboard`              | Sin ranking todavía              |
-| R4  | Órdenes ejecutadas a un precio obsoleto o que nadie publicó | P0        | Propiedades; resiliencia del feed     | DEF-002 cerrado; feed pendiente  |
-| R5  | Una cuenta lee o modifica datos de otra                     | P0        | `tests/security/`                     | Pendiente                        |
-| R6  | Órdenes duplicadas por reintentos o concurrencia            | P0        | Integración con Postgres; ráfagas k6  | Pendiente                        |
-| R7  | Caída o degradación con 500 usuarios                        | P0        | k6: WebSocket y ráfagas de órdenes    | WS en local, pasa; falta staging |
-| R8  | Multicuentas y cuentas coordinadas                          | P0        | Señales en `tests/audit/`; reglamento | Reglamento en borrador           |
-| R9  | Sin límite de peticiones en login ni en órdenes             | P1        | `tests/security/`; k6                 | Por verificar                    |
-| R10 | Caída del feed: la pantalla y el motor se contradicen       | P1        | Resiliencia con feed simulado         | Pendiente                        |
-| R11 | Pérdida de datos al reiniciar la API o restaurar la base    | P1        | Simulacro de restauración             | Sin respaldos todavía            |
-| R12 | Sesión robada o compartida: token de 7 días sin revocación  | P1        | `tests/security/`                     | Por verificar                    |
-| R13 | Explotar el gap al abrir la ventana de la competencia       | P1        | Propiedades con reloj controlado      | Parcial (R2 de las propiedades)  |
-| R14 | Flujo completo roto en móvil                                | P1        | Playwright con emulación de móvil     | Sin flujo de órdenes en la web   |
-| R15 | Dependencias vulnerables                                    | P2        | `pnpm audit`                          | 1 alta y 1 moderada, solo dev    |
-| R16 | Cabeceras, CORS y TLS mal configurados                      | P2        | OWASP ZAP contra staging              | Sin staging                      |
+| N.º | Riesgo                                                      | Prioridad | Cómo se prueba                        | Estado                          |
+| --- | ----------------------------------------------------------- | --------- | ------------------------------------- | ------------------------------- |
+| R1  | Dinero creado o perdido por redondeo                        | P0        | Propiedades sobre el motor            | DEF-001 cerrado (D-01)          |
+| R2  | El saldo no coincide con el libro contable                  | P0        | Propiedades; SQL sobre Postgres       | Motor en verde; base pendiente  |
+| R3  | El ranking mostrado no coincide con el reconstruido         | P0        | `pnpm audit:leaderboard`              | Sin ranking todavía             |
+| R4  | Órdenes ejecutadas a un precio obsoleto o que nadie publicó | P0        | Propiedades; resiliencia del feed     | DEF-002 cerrado; feed pendiente |
+| R5  | Una cuenta lee o modifica datos de otra                     | P0        | `tests/security/`                     | Pendiente                       |
+| R6  | Órdenes duplicadas por reintentos o concurrencia            | P0        | Integración con Postgres; ráfagas k6  | Pendiente                       |
+| R7  | Caída o degradación con 500 usuarios                        | P0        | k6: WebSocket y ráfagas de órdenes    | WS local pasa; falta staging    |
+| R8  | Multicuentas y cuentas coordinadas                          | P0        | Señales en `tests/audit/`; reglamento | Reglamento en borrador          |
+| R9  | Sin límite de peticiones en login ni en órdenes             | P1        | `tests/security/`; k6                 | Por verificar                   |
+| R10 | Caída del feed: la pantalla y el motor se contradicen       | P1        | Resiliencia con feed simulado         | Pendiente                       |
+| R11 | Pérdida de datos al reiniciar la API o restaurar la base    | P1        | Simulacro de restauración             | Sin respaldos todavía           |
+| R12 | Sesión robada o compartida: token de 7 días sin revocación  | P1        | `tests/security/`                     | Por verificar                   |
+| R13 | Explotar el gap al abrir la ventana de la competencia       | P1        | Propiedades con reloj controlado      | Parcial (R2 de las propiedades) |
+| R14 | Flujo completo roto en móvil                                | P1        | Playwright con emulación de móvil     | Sin flujo de órdenes en la web  |
+| R15 | Dependencias vulnerables                                    | P2        | `pnpm audit`                          | 1 alta y 1 moderada, solo dev   |
+| R16 | Cabeceras, CORS y TLS mal configurados                      | P2        | OWASP ZAP contra staging              | Sin staging                     |
 
 ### Riesgos vistos al leer el código, todavía sin probar
 
@@ -126,15 +126,15 @@ del bloqueo de la fila.
 
 ## 5. Criterios Go/No-Go
 
-| Criterio                                                 | Estado                                                                 |
-| -------------------------------------------------------- | ---------------------------------------------------------------------- |
-| 500 usuarios simulados 2 horas sin errores               | Sin probar en staging; en local, 15 min sin errores (`k6-ws-local.md`) |
-| Confirmación de orden en menos de 200 ms (p95) con carga | Sin probar                                                             |
-| Cero defectos Críticos o Altos abiertos                  | Sí, al 2026-11-18                                                      |
-| Restauración de respaldo verificada                      | Sin probar                                                             |
-| Recuperación tras caída del feed verificada              | Sin probar                                                             |
-| Auditoría del ranking sin diferencias                    | Sin probar                                                             |
-| Simulacro con usuarios reales y hallazgos cerrados       | Sin fecha                                                              |
+| Criterio                                                 | Estado            |
+| -------------------------------------------------------- | ----------------- |
+| 500 usuarios simulados 2 horas sin errores               | Local 15 min: sí  |
+| Confirmación de orden en menos de 200 ms (p95) con carga | Sin probar        |
+| Cero defectos Críticos o Altos abiertos                  | Sí, al 2026-11-18 |
+| Restauración de respaldo verificada                      | Sin probar        |
+| Recuperación tras caída del feed verificada              | Sin probar        |
+| Auditoría del ranking sin diferencias                    | Sin probar        |
+| Simulacro con usuarios reales y hallazgos cerrados       | Sin fecha         |
 
 ## 6. Lo que QA necesita de cada agente
 

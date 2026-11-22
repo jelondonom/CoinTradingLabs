@@ -1,7 +1,9 @@
 # k6: 500 WebSocket de mercado en local — V0.1
 
 - Responsable: Agente QA + Seguridad. Medido el 2026-11-22 entre las 01:05 y las 01:22 (hora local),
-  sobre `main` en `3a92b66`.
+  con el código de `main` en `3a92b66` (apps y escenario; la rama de este reporte solo suma
+  documentación). El detalle del criterio Go/No-Go está en `plan.md` §5: en local, 15 min sin
+  errores; las 2 horas quedan para staging.
 - Escenario: [`tests/load/ws-market-500.js`](../../tests/load/ws-market-500.js). Cada conexión se
   suscribe a 6 símbolos (BTCUSD, ETHUSD, AAPL, NVDA, XAUUSD, EURUSD), manda un `ping` cada 15 s, y a
   los 10 min se cierra y se vuelve a abrir.
