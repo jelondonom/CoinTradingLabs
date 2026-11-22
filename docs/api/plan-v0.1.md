@@ -57,15 +57,12 @@ final. La 9 (ranking) espera además el esquema `leaderboard.ts` del Arquitecto.
   desarrollo). Está corregido en 3.22.1 o superior. QA lo detalla en `docs/qa/audit-v0.1.md`.
 - **Revisado el 2026-11-22:** ninguna versión de Prisma lo corrige; `@prisma/config` 7.10.1 y las
   versiones `8.1.0-dev` siguen pidiendo 3.20.0.
-- **Plan:**
-  1. Al empezar, volver a mirar npm; si salió un Prisma corregido, subir juntos `prisma`,
-     `@prisma/client` y `@prisma/adapter-pg`.
-  2. Si no, override `effect: ^3.22.1` en `pnpm.overrides` del `package.json` de la raíz. Ese
-     archivo es del Arquitecto (A8).
-  3. Verificar `prisma generate`, migraciones, `pnpm test`, `pnpm audit` y `pnpm why effect -r`.
-  4. Si el override rompe algo, el PR documenta el riesgo: no explotable con datos de un
-     participante.
-- **Avisar a:** QA, para su reporte de audit y la casilla del checklist.
+- **Lo hace el Arquitecto (A8):** el override va en `pnpm-workspace.yaml`, donde vive la
+  configuración de pnpm de este repo. Cambia el lockfile de todos. Antes de abrir su PR verifica
+  `prisma generate`, los tests y `pnpm audit`.
+- **Mi parte:** cuando su PR esté en `main`, confirmar con `pnpm audit` y `pnpm why effect -r` que
+  ya no queda la alerta alta, y avisar a QA para su reporte de audit y la casilla del checklist.
+  La alerta moderada de `minimatch` (solo desarrollo, por `typescript-eslint`) queda para después.
 
 ## Tarea 3 — Errores del contrato, `stale_price` hacia afuera y DEF-004
 
@@ -166,7 +163,12 @@ final. La 9 (ranking) espera además el esquema `leaderboard.ts` del Arquitecto.
 - **Ranking en vivo:** con caché, calculado cada pocos segundos y nunca en cada petición.
 - **Desempate D-12:** retorno con 4 decimales, luego menos órdenes, luego quien llegó primero. Se
   aclara con el Gerente al empezar (G9).
-- **Espera:** `leaderboard.ts` del Arquitecto (A7).
+- **Ruta (A7):** `GET /leaderboard?cutoff=live|two_day|thirty_day`, `live` por defecto.
+  - La respuesta tiene la misma forma en los tres casos, con `cutoff` y `asOf` (momento de la foto
+    o del cálculo).
+  - Si la foto de un corte todavía no existe, responde 404 `not_found`.
+- **Espera:** la forma completa (posición, nombre visible, retorno con 4 decimales, desempate y
+  fila propia), que el Arquitecto publica con el contrato 2.1 antes de esta tarea.
 - **Checklist:** "Ranking por retorno con caché y desempate D-12".
 - **Avisar a:** QA (`audit:leaderboard`, D-19) y Frontend.
 
@@ -179,8 +181,14 @@ final. La 9 (ranking) espera además el esquema `leaderboard.ts` del Arquitecto.
   - Los nombres repetidos se permiten.
   - `fullName` y `email` nunca se guardan en la base.
 - **Salida, en la carpeta privada del servidor:**
-  - `*.codes.csv`, con los códigos para imprimir: se borra al repartir;
-  - `*.cuentas.csv`, sin códigos, para verificar ganadores: se borra después de premiar (G6).
+  - `*.codes.csv`, con los códigos para imprimir;
+  - `*.cuentas.csv`, sin códigos, para verificar ganadores (G6).
+- **Borrados del runbook (A6), los dos a cargo del Gerente:**
+  1. `asistentes.codes.csv`, al terminar de repartir los códigos.
+  2. `asistentes.cuentas.csv` y el CSV de entrada `asistentes.csv`, después del premio de los 30
+     días y su auditoría (D-19).
+- **`.gitignore`:** cubre `*.codes.csv`, `*.cuentas.csv` y `/private/`. Los archivos de prueba con
+  datos falsos llevan otro nombre (por ejemplo `*.ejemplo.csv`) para que no queden ocultos.
 - **Producción:** contenedor de un solo uso con el script compilado (A5); el runbook es del
   Arquitecto.
 - **Checklist:** "Script de cuentas desde CSV (D-20)".
@@ -214,8 +222,10 @@ final. La 9 (ranking) espera además el esquema `leaderboard.ts` del Arquitecto.
   - A3: cantidad 0 sin precio; ya está en el comentario de `orderSchema.quantity`.
   - A4: 422 `invalid_quantity`.
   - A5: comando del script, `.gitignore` con `*.codes.csv` y `/private/`, y borrado en el runbook.
-  - Pendientes: A6 (`*.cuentas.csv` y el segundo borrado), A7 (foto de un corte en
-    `leaderboard.ts`) y A8 (override de `effect`).
+  - A6: `*.cuentas.csv` en `.gitignore` y dos borrados en el runbook.
+  - A7: `GET /leaderboard?cutoff=live|two_day|thirty_day`; la forma completa llega con el contrato
+    2.1.
+  - A8: el override de `effect` lo hace el Arquitecto en `pnpm-workspace.yaml`.
 - **QA, 2026-11-21 y 2026-11-22:**
   - Q1–Q4: DEF-003 cerrado y sesión por cookie en su arnés.
   - Q5: propiedades al día con el umbral por símbolo.
