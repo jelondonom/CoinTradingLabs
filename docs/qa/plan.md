@@ -158,7 +158,7 @@ del bloqueo de la fila.
 | Arquitecto       | Entorno de staging con datos sintéticos, k6 disponible y respaldos (depende de D-06)                                               | R7, R11, R16 |
 | Arquitecto       | Actualizar `typescript-eslint` a 8.73.0 (cierra la alerta moderada de `minimatch`)                                                 | R15          |
 | Arquitecto       | Cuando no queden altas, `pnpm audit --audit-level high` en el CI                                                                   | R15          |
-| Frontend         | Flujo de órdenes en la web y atributos `data-testid` estables                                                                      | R14          |
+| Frontend         | Flujo de órdenes en la web y los `data-testid` de `docs/qa/data-testid.md` (confirmar la lista y aplicarla)                        | R14          |
 
 Resueltos: Postgres y Redis en el CI, que además falla si un test queda omitido (PR #14); límite
 de peticiones en login y órdenes (PR #17); división del ítem de `tests/security/` del checklist
