@@ -14,4 +14,4 @@ apps/api/src/generated
 .claude/
 # Datos de asistentes y códigos de acceso (D-20): nunca al repo.
 *.codes.csv
-private/
+/private/
