@@ -8,13 +8,15 @@
 
 ## Cómo se probó
 
-- [ ] `pnpm test` pasa
+- [ ] `pnpm test` pasa en la raíz (no solo en tu paquete)
 - [ ] `pnpm lint` pasa
+- [ ] La rama trae `main` y la última corrida del CI está en verde
 - [ ] Probado a mano (describe cómo):
 
 ## Cambios de contrato o de comportamiento
 
 <!-- ¿Toca `packages/shared`? ¿Cambia algo que otro agente o el usuario va a notar? Si no, escribe "Ninguno". -->
+<!-- Si cambia una regla del motor, enlaza el PR de QA que pone al día sus propiedades. -->
 
 ## Variables de entorno o dependencias nuevas
 

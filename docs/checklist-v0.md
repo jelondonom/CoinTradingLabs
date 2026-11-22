@@ -36,7 +36,7 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] `/health` en `api` y `market-data`.
 - [x] ADRs 0001–0003 y README de arranque.
 - [x] Contrato v2 (D-03, D-04, D-09, D-11) con ADR y `CONTRACT_VERSION = 2` — `docs/adr/0004-contrato-v2.md`, 33 tests en `contracts.test.ts`.
-- [ ] Postgres y Redis en el CI: los `*.integration.test.ts` corren.
+- [x] Postgres y Redis en el CI: los `*.integration.test.ts` corren — PR #14; corrida #62 de `main` (`166fffa`) con "Tests con Postgres y Redis" y "Verificar que ningún test quedó saltado" en verde.
 - [x] `.gitignore` incluye `.claude/` — `8578dbc`.
 - [ ] Caddy con HTTPS y un solo origen (`/api`, `/ws/*`, velas).
 - [ ] Scripts de despliegue, rollback, respaldo y restauración, listos para un VPS con Docker.

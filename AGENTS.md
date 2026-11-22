@@ -52,20 +52,31 @@ Frontend: Lightweight Charts, Zustand y Tailwind CSS (ver `docs/adr/0003-libreri
 
 ## Ramas y trabajo en paralelo
 
-- Una rama por agente y por tarea. Dos agentes nunca escriben en la misma rama.
-- Una carpeta local tiene una sola rama activa. Antes de empezar una tarea, confirma con
-  `git status -sb` en qué rama está la carpeta. No cambies la rama de una carpeta que usa otro
-  agente.
-- Para trabajar sin tocar la carpeta de otro, usa una carpeta propia con
-  `git worktree add ../ctl-<agente> <rama>` y bórrala al terminar con `git worktree remove`.
+- Una sesión por rol. Una rama por agente y por tarea. Dos agentes nunca escriben en la misma rama.
+- Cada tarea en su propia carpeta:
+  `git worktree add -b <rama> ../ctl-<agente>-<tarea> origin/main`. Antes de empezar, revisa
+  `git worktree list` y `git status -sb`. No escribas en la carpeta de otro agente: solo mírala.
 - Si `main` avanzó mientras trabajabas, trae `main` a tu rama antes de abrir el PR.
 - Si aparece un conflicto, lo resuelve el agente dueño de la rama.
-- Todo cambio llega a `main` por PR con CI en verde. Las únicas excepciones son los cambios de
-  `packages/shared`, `.github/` y `docs/` que el Arquitecto publica con el OK del Gerente.
+- Todo cambio llega a `main` por PR, sin excepciones. Solo se fusiona con la última corrida del CI
+  en verde y con `main` ya traído a la rama. Si `main` avanzó después de esa corrida, trae `main`
+  y espera una corrida nueva.
+- Después de fusionar, borra la rama remota y la carpeta (`git worktree remove`). En Windows
+  quedan carpetas `node_modules`: bórralas con `cmd /c rd /s /q`.
+
+## Cambios de reglas del motor
+
+- Cuando una decisión (D-xx) cambia una regla del motor, el Backend actualiza la tabla de
+  `docs/engine-rules.md` y avisa a QA. QA pone al día sus propiedades en su propio PR.
+- El PR del Backend no se fusiona hasta que el de QA esté listo. Si hace falta, el de QA entra
+  antes, con `it.fails` en lo que todavía no cumple el motor.
+- El PR que arregla un defecto voltea su `it.fails` en `tests/properties/engine-defects.test.ts`.
 
 ## Lo que no se hace
 
 - No cambiar un contrato de `packages/shared/` sin avisar a los agentes afectados.
+- No copiar reglas que viven en `packages/shared/` (`MIN_ORDER_USD`, `staleAfterMs`,
+  `MAX_TICK_FUTURE_MS`, motivos de rechazo): se importan.
 - No instalar dependencias sin avisar y justificar.
 - No subir archivos `.env*`, llaves ni respaldos.
 - No introducir Kubernetes, microservicios, Kafka ni service mesh.
