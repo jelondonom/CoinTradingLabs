@@ -22,7 +22,8 @@ export function ChartToolbar() {
             aria-pressed={option === interval}
             onClick={() => setInterval(option)}
             className={cx(
-              'min-h-11 min-w-11 rounded-md px-2 text-sm lg:min-h-8 lg:min-w-9',
+              // 40 px de ancho y 44 de alto: las seis temporalidades y el tipo de gráfica caben en 360 px.
+              'min-h-11 min-w-10 rounded-md px-2 text-sm lg:min-h-8 lg:min-w-9',
               option === interval ? 'bg-text font-semibold text-surface' : 'text-muted',
             )}
           >

@@ -117,7 +117,9 @@ export function SymbolList() {
       {visible.length === 0 ? (
         <p className="p-4 text-sm text-muted">{t('symbols.empty')}</p>
       ) : (
-        <ul className="min-h-0 flex-1 overflow-y-auto">
+        // `relative`: los textos `sr-only` de `PriceMove` (position: absolute) quedan dentro de la
+        // lista con scroll. Sin un ancestro posicionado escapaban del recorte y alargaban la página.
+        <ul className="relative min-h-0 flex-1 overflow-y-auto">
           {visible.map((instrument) => (
             <SymbolRow key={instrument.symbol} instrument={instrument} />
           ))}
