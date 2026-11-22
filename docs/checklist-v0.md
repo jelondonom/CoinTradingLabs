@@ -115,7 +115,8 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [ ] Idempotencia y concurrencia probadas con Postgres.
 - [x] DEF-001 y DEF-002 vueltos a probar y cerrados — `docs/qa/defectos.md` (sección "Cierre"); `tests/properties/engine-defects.test.ts` en verde con `pnpm test`.
 - [ ] E2E con Playwright del flujo completo, en móvil y escritorio.
-- [ ] k6 de 500 conexiones WebSocket: primero en local, luego en staging.
+- [x] k6 de 500 conexiones WebSocket en local — `docs/qa/k6-ws-local.md`: 1.000/1.000 sesiones correctas, 0 errores, conexión en 11 ms (p95).
+- [ ] k6 de 500 conexiones WebSocket en staging, 2 horas (fase 2, depende de D-06).
 - [ ] k6 de ráfagas contra `POST /orders`.
 - [ ] `pnpm audit` sin vulnerabilidades altas.
 - [ ] Reporte Go/No-Go de V0.1 — `docs/qa/go-no-go-v0.1.md`.

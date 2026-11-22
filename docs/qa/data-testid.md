@@ -1,8 +1,9 @@
 # Lista de `data-testid` — V0.1
 
 - Estado: **cerrada con el Frontend** el 2026-11-21. Incluye su lista de 16 nombres (Q1) con los 23
-  que sumó QA y sus cuatro reglas, los tamaños de pantalla (Q2) y sus cinco ajustes (Q3 a Q7),
-  aceptados por QA. Es la lista que aplica `apps/web` y la que usan las pruebas de `tests/e2e/`.
+  que sumó QA y sus cuatro reglas, los tamaños de pantalla (Q2), sus cinco ajustes (Q3 a Q7) y sus
+  tres precisiones (Q8 a Q10), aceptados por QA. Es la lista que aplica `apps/web` y la que usan las
+  pruebas de `tests/e2e/`.
 - QA mantiene esta lista; el Frontend la aplica. Un nombre, un atributo o un valor de `data-state` no
   se cambia ni se borra sin avisar a QA en el PR, para que QA actualice este archivo.
 - Cuándo llegan a la web: los nombres de lo que ya existe, en la tarea F1 del Frontend; el resto, en
@@ -124,6 +125,11 @@ muestra el saldo inicial fijo (100.000), no el real: ninguna prueba debe depende
 | ------------- | ------------------------------------------- | ------------------------------------------------------------------------------------ | ------- |
 | `history-row` | Una fila por orden, la más reciente primero | `data-order-id`; `data-state`: `filled`, `rejected`; `data-error-code` si se rechazó | QA      |
 
+`data-order-id` lleva `Order.id`, el UUID que asigna el servidor (Q8): siempre existe, mientras que
+`clientOrderId` puede venir `null` en órdenes anteriores al contrato v2. El historial solo muestra
+órdenes guardadas; un rechazo sin orden guardada (422, por ejemplo una cantidad que no cabe en la
+base) no aparece en el historial: se ve en `ticket-result`.
+
 ### Ranking
 
 | `data-testid`          | Qué es                                                     | Atributos                          | Propuso                     |
@@ -160,9 +166,25 @@ de vista con `nav-*` y `tab-*` antes de cada paso.
 | 6. Saldo y P&L realizado                         | Compara saldo, equity y P&L realizado con `GET /account`                                                             | `account-balance`, `account-equity`, `account-realized-pnl`                                                                            |
 | 7. Aparecer en el ranking                        | Abre el ranking y encuentra su fila                                                                                  | `ranking-me`, `ranking-row-<puesto>` con `data-me="true"`                                                                              |
 
-La venta parcial (`ticket-sell`) es un caso aparte del flujo (`docs/qa/plan.md` §4.4). Casos de
-resiliencia: si el feed cae, aparecen `connection-banner`, `symbol-status-<símbolo>` con
-`data-state="stale"` y `ticket-status` con `data-state="stale"`.
+La venta parcial (`ticket-sell`) es un caso aparte del flujo (`docs/qa/plan.md` §4.4).
+
+**Monto menor al mínimo (Q9).** Lo decide la tarea F6 del Frontend:
+
+- Si el ticket bloquea en el cliente una compra que no llega a 10 USD (`MIN_ORDER_USD` de
+  `@coin/shared`, sin copias), la prueba lee `ticket-status` con `data-state="below-minimum"` y el
+  botón deshabilitado. El rechazo del servidor se prueba entonces directo contra la API.
+- El bloqueo conviene calcularlo con el monto estimado, no con el monto escrito: el servidor redondea
+  la cantidad hacia abajo (D-09), así que 10 USD de BTCUSD a 60.010 compran 0,00016 BTC, que cuestan
+  9,61 USD, y el servidor responde `below_minimum`.
+- Como el precio puede moverse entre la estimación y la orden, la prueba conserva siempre el caso del
+  servidor: `ticket-result` con `data-error-code="below_minimum"`.
+
+**Si el feed cae (Q10).** Son dos casos distintos:
+
+| Caso                                   | Qué pasa                                                  | Qué lee la prueba                                                                                                                                                                                                                                         |
+| -------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A. Se cae el WebSocket de mercado      | El navegador pierde la conexión y reintenta               | `connection-status` con `data-state="reconnecting"`, `connection-banner` visible y `ticket-status` con `data-state="offline"`. Qué muestra `symbol-status` mientras no hay conexión lo define la tarea F8 del Frontend; QA prefiere que no siga en `live` |
+| B. El proveedor deja de mandar precios | La conexión sigue viva y llega `status` con `stale: true` | `symbol-status-<símbolo>` y `ticket-status` con `data-state="stale"`; sin `connection-banner`                                                                                                                                                             |
 
 ## Tamaños de pantalla
 

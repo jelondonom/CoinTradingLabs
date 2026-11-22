@@ -37,7 +37,7 @@ del congreso.
 | R4  | Órdenes ejecutadas a un precio obsoleto o que nadie publicó | P0        | Propiedades; resiliencia del feed     | DEF-002 cerrado; feed pendiente |
 | R5  | Una cuenta lee o modifica datos de otra                     | P0        | `tests/security/`                     | Pendiente                       |
 | R6  | Órdenes duplicadas por reintentos o concurrencia            | P0        | Integración con Postgres; ráfagas k6  | Pendiente                       |
-| R7  | Caída o degradación con 500 usuarios                        | P0        | k6: WebSocket y ráfagas de órdenes    | Escenario listo, sin ejecutar   |
+| R7  | Caída o degradación con 500 usuarios                        | P0        | k6: WebSocket y ráfagas de órdenes    | WS local pasa; falta staging    |
 | R8  | Multicuentas y cuentas coordinadas                          | P0        | Señales en `tests/audit/`; reglamento | Reglamento en borrador          |
 | R9  | Sin límite de peticiones en login ni en órdenes             | P1        | `tests/security/`; k6                 | Por verificar                   |
 | R10 | Caída del feed: la pantalla y el motor se contradicen       | P1        | Resiliencia con feed simulado         | Pendiente                       |
@@ -128,7 +128,7 @@ del bloqueo de la fila.
 
 | Criterio                                                 | Estado            |
 | -------------------------------------------------------- | ----------------- |
-| 500 usuarios simulados 2 horas sin errores               | Sin probar        |
+| 500 usuarios simulados 2 horas sin errores               | Local 15 min: sí  |
 | Confirmación de orden en menos de 200 ms (p95) con carga | Sin probar        |
 | Cero defectos Críticos o Altos abiertos                  | Sí, al 2026-11-18 |
 | Restauración de respaldo verificada                      | Sin probar        |
