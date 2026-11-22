@@ -3,7 +3,7 @@
  * fijo, secreto de prueba y límites de peticiones que ninguna prueba alcanza. Se importa por ruta
  * relativa, como el motor en `tests/properties/`, y nunca se modifica.
  */
-import { DEFAULT_STALE_AFTER_MS, SESSION_COOKIE_NAME } from '@coin/shared';
+import { SESSION_COOKIE_NAME } from '@coin/shared';
 import { buildApp } from '../../apps/api/src/app.js';
 import type { Db } from '../../apps/api/src/db/prisma.js';
 import { signToken } from '../../apps/api/src/modules/auth/token.js';
@@ -48,7 +48,6 @@ export function startApi(db: Db, ticks = new MemoryTickSource()): Promise<Api> {
       ticks,
       queue: new AccountQueue(),
       now: () => NOW,
-      staleAfterMs: DEFAULT_STALE_AFTER_MS,
       tokenSecret: SECRET,
       tokenTtlMs: SESSION_MS,
       rateLimits: unreachableRateLimits(),

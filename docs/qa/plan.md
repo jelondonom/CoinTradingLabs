@@ -62,13 +62,6 @@ Son hipótesis. Ninguna es un defecto hasta que un test la confirme.
 - Con D-09 (orden por monto), un monto que no alcanza una unidad deja una orden rechazada con
   `quantity = 0`, como permite el contrato v2. Pero la columna tiene `CHECK quantity > 0`: guardarla
   daría el mismo 500 que DEF-003. Hoy no ocurre porque la API todavía no acepta órdenes por monto.
-- La API le pasa al motor un solo umbral de precio obsoleto (`STALE_PRICE_AFTER_MS`, 30 s por
-  defecto, en `apps/api/src/index.ts`) y no `staleAfterMs(symbol)` de `@coin/shared` (D-11). En
-  EURUSD y NGASUSD (60 s) la API rechazaría entre los 30 y los 60 s sin tick, mientras
-  market-data los muestra vigentes. Las propiedades no lo ven: el arnés le da al motor el umbral
-  por símbolo. Se confirma con una prueba de la API en la fase 2.
-- El motor tiene su propia copia de la tolerancia de tick futuro (`MAX_FUTURE_SKEW_MS`) en vez de
-  `MAX_TICK_FUTURE_MS` de `@coin/shared`.
 
 Descartado al revisar el código: dos posiciones abiertas del mismo símbolo en una cuenta. Las
 impide el índice único parcial `positions_open_account_symbol_key` sobre (`account_id`, `symbol`)
@@ -148,7 +141,6 @@ del bloqueo de la fila.
 | De               | Qué                                                                                                                                | Para         |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------ |
 | Backend          | Responder `stale_price` tal cual, sin pasarlo a `no_price` (su tarea T7)                                                           | R4           |
-| Backend          | Usar `staleAfterMs(symbol)` y `MAX_TICK_FUTURE_MS` de `@coin/shared` en las órdenes                                                | R4, R10      |
 | Backend          | Ruta del ranking (el límite de peticiones ya está en `main`, PR #17)                                                               | R3           |
 | Backend          | Corregir DEF-004: el login debe usar `loginRequestSchema` de `@coin/shared` (D-04)                                                 | R12          |
 | Backend          | Con D-09, guardar una orden por monto rechazada con `quantity = 0` sin violar el CHECK                                             | R1           |
@@ -163,7 +155,10 @@ del bloqueo de la fila.
 Resueltos: Postgres y Redis en el CI, que además falla si un test queda omitido (PR #14); límite
 de peticiones en login y órdenes (PR #17); división del ítem de `tests/security/` del checklist
 (respuesta del Arquitecto del 2026-11-21, aplicada por QA); DEF-003 corregido por el Backend en el
-PR #21 y cerrado por QA.
+PR #21 y cerrado por QA; umbral de precio obsoleto por símbolo (`staleAfterMs(symbol)`) y
+`MAX_TICK_FUTURE_MS` del contrato en la API y el motor (PR #23). Falta una prueba de la API que
+confirme el umbral por símbolo: las propiedades no lo ven, porque el arnés ya le da al motor el
+umbral de cada símbolo.
 
 ## 7. Decisiones del Gerente
 
