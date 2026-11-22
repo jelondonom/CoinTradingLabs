@@ -26,11 +26,14 @@ describe('loadEnv', () => {
     expect(env.authTokenSecret).toBe('x'.repeat(32));
   });
 
-  it('rechaza un secreto corto y usa 7 días de sesión y 30 s de umbral por defecto', () => {
+  it('rechaza un secreto corto y usa 7 días de sesión por defecto', () => {
     expect(() => loadEnv({ AUTH_TOKEN_SECRET: 'corto' })).toThrow(/AUTH_TOKEN_SECRET/);
-    const env = loadEnv({});
-    expect(env.authTokenTtlMs).toBe(7 * 24 * 60 * 60 * 1000);
-    expect(env.stalePriceAfterMs).toBe(30_000);
+    expect(loadEnv({}).authTokenTtlMs).toBe(7 * 24 * 60 * 60 * 1000);
+  });
+
+  it('un .env viejo con STALE_PRICE_AFTER_MS arranca igual: el umbral sale de shared (D-11)', () => {
+    const env = loadEnv({ STALE_PRICE_AFTER_MS: '5000' });
+    expect(env).not.toHaveProperty('stalePriceAfterMs');
   });
 
   it('límites de D-13: 100 fallos de login cada 15 min, 30 órdenes por minuto y 1.000 por día', () => {

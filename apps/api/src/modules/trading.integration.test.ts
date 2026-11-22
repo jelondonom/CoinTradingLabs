@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { accountSchema, orderSchema, positionSchema } from '@coin/shared';
+import { accountSchema, orderSchema, positionSchema, staleAfterMs } from '@coin/shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../app.js';
@@ -56,7 +56,6 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
         ticks,
         queue: new AccountQueue(),
         now: () => now,
-        staleAfterMs: 30_000,
         tokenSecret: SECRET,
         tokenTtlMs: 60 * 60 * 1000,
         // Los números propuestos de D-13: los demás tests nunca deben toparse con ellos.
@@ -253,7 +252,7 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
     const base = { symbol: 'BTCUSD', type: 'market' };
 
     // Precio obsoleto: la base guarda `stale_price`; el contrato aún solo admite `no_price`.
-    setBtc('60000.00', '60010.00', now - 30_001);
+    setBtc('60000.00', '60010.00', now - staleAfterMs('BTCUSD') - 1);
     const stale = await order(trader.headers, { ...base, side: 'buy', quantity: 0.1 });
     expect(stale.statusCode).toBe(201);
     expect(orderSchema.parse(stale.json())).toMatchObject({
@@ -290,6 +289,34 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
     expect(
       await db.auditLog.count({ where: { accountId: trader.accountId, action: 'order.rejected' } }),
     ).toBe(5);
+  });
+
+  it('umbral obsoleto por símbolo desde @coin/shared (D-11)', async () => {
+    const trader = await newTrader();
+    // EURUSD recibe ticks con menos frecuencia que BTCUSD y por eso aguanta más sin precio nuevo.
+    // Si los dos umbrales se igualan, este caso deja de probar algo.
+    expect(staleAfterMs('EURUSD')).toBeGreaterThan(staleAfterMs('BTCUSD'));
+    const setEur = (ts: number) => ticks.set('EURUSD', { bid: '1.0840', ask: '1.0850', ts });
+    const storedReason = async (id: string) =>
+      (await db.order.findUniqueOrThrow({ where: { id } })).rejectReason;
+    const buy = (symbol: string, quantity: number) =>
+      order(trader.headers, { symbol, side: 'buy', type: 'market', quantity });
+
+    // El mismo tick, viejo para BTCUSD y vigente para EURUSD: así lo muestra market-data.
+    const age = staleAfterMs('BTCUSD') + 1;
+    setBtc('60000.00', '60010.00', now - age);
+    setEur(now - age);
+    expect(await storedReason((await buy('BTCUSD', 0.1)).json().id)).toBe('stale_price');
+    expect((await buy('EURUSD', 100)).json().status).toBe('filled');
+
+    // Pasado su propio umbral, EURUSD también es obsoleto.
+    setEur(now - staleAfterMs('EURUSD') - 1);
+    expect(await storedReason((await buy('EURUSD', 100)).json().id)).toBe('stale_price');
+
+    // Solo la compra vigente movió dinero: 100 × 1,0850 = 108,50.
+    expect(await expectLedgerMatchesBalance(trader.accountId)).toBe('99891.50');
+    setBtc('60000.00', '60010.00');
+    ticks.set('EURUSD', null);
   });
 
   it('rechaza con 400 un cuerpo fuera de contrato', async () => {
@@ -362,7 +389,6 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
       ticks,
       queue: new AccountQueue(),
       now: () => now,
-      staleAfterMs: 30_000,
     });
     const { placeOrder } = await import('./orders/place-order.js');
     const request = { symbol: 'BTCUSD', side: 'buy', type: 'market', quantity: 0.9 } as const;
@@ -445,7 +471,6 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
           ticks,
           queue: new AccountQueue(),
           now: () => clock,
-          staleAfterMs: 30_000,
           tokenSecret: SECRET,
           tokenTtlMs: 7 * DAY_MS,
           rateLimits: rateLimits(() => clock, {

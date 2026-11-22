@@ -42,7 +42,6 @@ const app = await buildApp({
     ticks: new RedisTickSource(redis),
     queue: new AccountQueue(),
     now,
-    staleAfterMs: env.stalePriceAfterMs,
     tokenSecret: env.authTokenSecret,
     tokenTtlMs: env.authTokenTtlMs,
     rateLimits: new TradingRateLimits(rateLimiter, env.rateLimits),

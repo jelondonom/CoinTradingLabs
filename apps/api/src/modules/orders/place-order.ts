@@ -1,4 +1,4 @@
-import type { PlaceOrderRequest } from '@coin/shared';
+import { staleAfterMs, type PlaceOrderRequest } from '@coin/shared';
 import { isUniqueViolation, type Tx } from '../../db/prisma.js';
 import { dec, executeMarketOrder, type EngineTick } from '../../engine/index.js';
 import { invalidRequest, notFound } from '../../errors/app-error.js';
@@ -11,7 +11,7 @@ export type PlaceOrderResult = {
   replayed: boolean;
 };
 
-type OrderDeps = Pick<TradingDeps, 'db' | 'ticks' | 'queue' | 'now' | 'staleAfterMs'>;
+type OrderDeps = Pick<TradingDeps, 'db' | 'ticks' | 'queue' | 'now'>;
 
 /** Texto exacto de un decimal para guardarlo en una columna NUMERIC. */
 function text(value: { toFixed(): string }): string {
@@ -48,7 +48,7 @@ export function placeOrder(
 
     try {
       const order = await deps.db.$transaction((tx) =>
-        executeInTransaction(tx, { accountId, request, tick, now }, deps.staleAfterMs),
+        executeInTransaction(tx, { accountId, request, tick, now }),
       );
       return { order, replayed: false };
     } catch (error) {
@@ -65,7 +65,6 @@ export function placeOrder(
 async function executeInTransaction(
   tx: Tx,
   input: { accountId: string; request: PlaceOrderRequest; tick: EngineTick | null; now: number },
-  staleAfterMs: number,
 ): Promise<OrderRow> {
   const { accountId, request, tick, now } = input;
   const at = new Date(now);
@@ -102,7 +101,9 @@ async function executeInTransaction(
       minQuantity: instrument.minQuantity.toString(),
     },
     tick,
-    staleAfterMs,
+    // El umbral del símbolo sale de la misma función que usa market-data (D-11): si la pantalla
+    // muestra el precio vigente, el motor también lo acepta.
+    staleAfterMs: staleAfterMs(request.symbol),
     balance: account.balance.toString(),
     position: position && {
       quantity: position.quantity.toString(),
