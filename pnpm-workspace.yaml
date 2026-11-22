@@ -8,3 +8,9 @@ allowBuilds:
   '@prisma/engines': true
   esbuild: true
   prisma: true
+
+# Versiones forzadas en dependencias transitivas, solo por parches de seguridad.
+# Quitar cada una cuando la dependencia que la trae ya pida una versión corregida.
+overrides:
+  # GHSA-7589-6fvf-x4pw (ReDoS, alta). Llega por prisma → @prisma/config, que pide 3.20.0.
+  effect: ^3.22.1
