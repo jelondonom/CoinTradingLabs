@@ -7,21 +7,22 @@ cambio aquí, lo pide; no lo edita directamente.
 
 ## Carpetas
 
-| Carpeta                      | Contenido                                                  |
-| ---------------------------- | ---------------------------------------------------------- |
-| `src/features/chart/`        | Gráfica, temporalidades, indicadores y dibujos.            |
-| `src/features/symbols/`      | Lista de símbolos con búsqueda y filtros.                  |
-| `src/features/order-ticket/` | Ticket de orden simple y avanzado.                         |
-| `src/features/positions/`    | Posiciones, órdenes e historial.                           |
-| `src/features/leaderboard/`  | Ranking en vivo.                                           |
-| `src/features/onboarding/`   | Recorrido guiado y glosario.                               |
-| `src/features/auth/`         | Ingreso.                                                   |
-| `src/components/`            | Componentes de interfaz reutilizables.                     |
-| `src/lib/indicators/`        | Cálculo de indicadores: funciones puras con tests.         |
-| `src/lib/ws/`                | Clientes WebSocket de mercado y de cuenta, con reconexión. |
-| `src/stores/`                | Estado global.                                             |
-| `src/i18n/`                  | Textos de la interfaz; español primero.                    |
-| `docs/web/bocetos/` (raíz)   | Bocetos de pantallas que esperan o tienen aprobación.      |
+| Carpeta                      | Contenido                                                                   |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| `src/features/chart/`        | Gráfica, temporalidades, indicadores y dibujos.                             |
+| `src/features/symbols/`      | Lista de símbolos con búsqueda y filtros.                                   |
+| `src/features/order-ticket/` | Ticket de orden simple y avanzado.                                          |
+| `src/features/positions/`    | Posiciones, órdenes e historial.                                            |
+| `src/features/leaderboard/`  | Ranking en vivo.                                                            |
+| `src/features/onboarding/`   | Recorrido guiado y glosario.                                                |
+| `src/features/auth/`         | Ingreso.                                                                    |
+| `src/components/`            | Componentes de interfaz reutilizables.                                      |
+| `src/lib/indicators/`        | Cálculo de indicadores: funciones puras con tests.                          |
+| `src/lib/api/`               | Cliente REST del contrato v2 (`/api` y `/market`), tipado por los esquemas. |
+| `src/lib/ws/`                | Clientes WebSocket de mercado y de cuenta, con reconexión.                  |
+| `src/stores/`                | Estado global.                                                              |
+| `src/i18n/`                  | Textos de la interfaz; español primero.                                     |
+| `docs/web/bocetos/` (raíz)   | Bocetos de pantallas que esperan o tienen aprobación.                       |
 
 ## Comandos
 
