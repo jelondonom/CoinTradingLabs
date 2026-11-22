@@ -406,10 +406,25 @@ describe('contrato v2', () => {
       expect(candlesQuerySchema.safeParse({ ...query, interval: '2h' }).success).toBe(false);
     });
 
-    it('un from o to vacío cuenta como no enviado', () => {
+    it('un from, to o limit vacío cuenta como no enviado', () => {
       expect(
         candlesQuerySchema.parse({ symbol: 'BTCUSD', interval: '1m', from: '', to: '' }),
       ).toEqual({ symbol: 'BTCUSD', interval: '1m', limit: CANDLES_DEFAULT_LIMIT });
+      expect(candlesQuerySchema.parse({ symbol: 'BTCUSD', interval: '1m', limit: '' })).toEqual({
+        symbol: 'BTCUSD',
+        interval: '1m',
+        limit: CANDLES_DEFAULT_LIMIT,
+      });
+      expect(
+        candlesQuerySchema.parse({ symbol: 'BTCUSD', interval: '1m', from: ' ', limit: ' ' }),
+      ).toEqual({ symbol: 'BTCUSD', interval: '1m', limit: CANDLES_DEFAULT_LIMIT });
+      // Sin limit, también el valor por defecto; un limit no numérico sigue siendo inválido.
+      expect(candlesQuerySchema.parse({ symbol: 'BTCUSD', interval: '1m' }).limit).toBe(
+        CANDLES_DEFAULT_LIMIT,
+      );
+      expect(
+        candlesQuerySchema.safeParse({ symbol: 'BTCUSD', interval: '1m', limit: 'diez' }).success,
+      ).toBe(false);
     });
 
     it('respuesta con símbolo, intervalo y velas', () => {
