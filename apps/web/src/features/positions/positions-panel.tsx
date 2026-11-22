@@ -13,7 +13,10 @@ export function PositionsPanel({ isDesktop }: { isDesktop: boolean }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-surface">
       {isDesktop && <PanelTabs isDesktop />}
-      <p className="p-4 text-sm text-muted">
+      <p
+        data-testid={panelTab === 'positions' ? 'positions-empty' : undefined}
+        className="p-4 text-sm text-muted"
+      >
         {t(panelTab === 'positions' ? 'positions.empty' : 'history.empty')}
       </p>
     </div>

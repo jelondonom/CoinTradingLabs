@@ -18,6 +18,7 @@ export function ChartToolbar() {
           <button
             key={option}
             type="button"
+            data-testid={`chart-interval-${option}`}
             aria-pressed={option === interval}
             onClick={() => setInterval(option)}
             className={cx(

@@ -37,6 +37,7 @@ export function PanelTabs({ isDesktop, visible = true }: PanelTabsProps) {
         <button
           key={tab}
           type="button"
+          data-testid={`tab-${tab}`}
           aria-pressed={tab === active}
           onClick={() => setTab(tab)}
           className={cx(

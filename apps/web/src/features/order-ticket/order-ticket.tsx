@@ -2,10 +2,12 @@ import { getInstrument } from '@coin/shared';
 import { useId, useState } from 'react';
 import { t } from '../../i18n/index.js';
 import { cx } from '../../lib/cx.js';
+import { dataValue } from '../../lib/data-value.js';
 import { formatMoney, formatPrice, formatQuantity } from '../../lib/format.js';
 import { useMarketStore } from '../../stores/market-store.js';
 import { useUiStore } from '../../stores/ui-store.js';
 import { estimateQuantity } from './estimate-quantity.js';
+import { TICKET_STATUS_MESSAGE, ticketStatus } from './ticket-status.js';
 
 const QUICK_AMOUNTS = [100, 1000, 5000] as const;
 
@@ -24,11 +26,7 @@ export function OrderTicket() {
 
   const instrument = getInstrument(symbol);
   const quantity = estimateQuantity(Number(amount), tick?.ask, instrument.quantityPrecision);
-  const reason = !live
-    ? t('ticket.offline')
-    : stale
-      ? t('ticket.stale', { symbol })
-      : t('ticket.engineOff');
+  const status = ticketStatus({ live, stale });
 
   return (
     <div className="flex flex-col gap-3 bg-surface p-3">
@@ -40,13 +38,18 @@ export function OrderTicket() {
           <span className="text-sm text-muted">{t('ticket.currency')}</span>
           <input
             id={inputId}
+            data-testid="ticket-amount"
             inputMode="decimal"
             value={amount}
             onChange={(event) => setAmount(event.target.value.replace(/[^\d.]/g, ''))}
             className="min-w-0 flex-1 bg-transparent py-2 text-lg font-bold tabular-nums outline-none"
           />
         </div>
-        <p className="mt-1 text-xs text-muted">
+        <p
+          data-testid="ticket-estimate"
+          data-value={dataValue(quantity)}
+          className="mt-1 text-xs text-muted"
+        >
           {quantity === null
             ? t('ticket.noEstimate')
             : t('ticket.estimate', {
@@ -61,6 +64,7 @@ export function OrderTicket() {
           <button
             key={option}
             type="button"
+            data-testid={`ticket-quick-${option}`}
             aria-pressed={Number(amount) === option}
             onClick={() => setAmount(String(option))}
             className={cx(
@@ -78,6 +82,7 @@ export function OrderTicket() {
       <div className="grid grid-cols-2 gap-2.5">
         <button
           type="button"
+          data-testid="ticket-sell"
           disabled
           aria-describedby={reasonId}
           className="flex min-h-14 flex-col items-center justify-center rounded-xl border-2 border-down font-bold text-down disabled:opacity-60"
@@ -92,6 +97,7 @@ export function OrderTicket() {
         </button>
         <button
           type="button"
+          data-testid="ticket-buy"
           disabled
           aria-describedby={reasonId}
           className="flex min-h-14 flex-col items-center justify-center rounded-xl border-2 border-up bg-up font-bold text-surface disabled:opacity-60"
@@ -106,9 +112,14 @@ export function OrderTicket() {
         </button>
       </div>
 
-      <p id={reasonId} className="rounded-md bg-raised px-2.5 py-2 text-xs">
+      <p
+        id={reasonId}
+        data-testid="ticket-status"
+        data-state={status}
+        className="rounded-md bg-raised px-2.5 py-2 text-xs"
+      >
         <span aria-hidden="true">ⓘ </span>
-        {reason}
+        {t(TICKET_STATUS_MESSAGE[status], { symbol })}
       </p>
       <p className="text-xs text-muted">{t('ticket.simulated')}</p>
     </div>

@@ -10,6 +10,7 @@ import { PositionsPanel } from './features/positions/positions-panel.js';
 import { SymbolList } from './features/symbols/symbol-list.js';
 import { t } from './i18n/index.js';
 import { cx } from './lib/cx.js';
+import { dataValue } from './lib/data-value.js';
 import { formatMoney, formatPrice } from './lib/format.js';
 import { DESKTOP_QUERY, useMediaQuery } from './lib/use-media-query.js';
 import { startMarketFeed } from './lib/ws/market-feed.js';
@@ -50,10 +51,13 @@ function SymbolHeader({ isDesktop }: { isDesktop: boolean }) {
   return (
     <div className="flex min-h-12 flex-none items-center gap-2 border-b border-line px-3">
       {isDesktop ? (
-        <span className="text-base font-bold">{symbol}</span>
+        <span data-testid="header-symbol" className="text-base font-bold">
+          {symbol}
+        </span>
       ) : (
         <button
           type="button"
+          data-testid="header-symbol"
           onClick={() => setNav('markets')}
           aria-label={`${t('symbols.change')}: ${symbol}`}
           className="flex min-h-11 items-center gap-1 text-base font-bold"
@@ -68,7 +72,11 @@ function SymbolHeader({ isDesktop }: { isDesktop: boolean }) {
           ⚠ {t('symbols.stale')}
         </span>
       )}
-      <span className="text-base font-bold tabular-nums">
+      <span
+        data-testid="header-price"
+        data-value={dataValue(last)}
+        className="text-base font-bold tabular-nums"
+      >
         {formatPrice(last, instrument.pricePrecision)}
       </span>
       <PriceMove direction={direction} className="text-sm" />
@@ -88,6 +96,7 @@ function BottomNav() {
         <button
           key={section}
           type="button"
+          data-testid={`nav-${section}`}
           aria-current={section === nav ? 'page' : undefined}
           onClick={() => setNav(section)}
           className={cx(
