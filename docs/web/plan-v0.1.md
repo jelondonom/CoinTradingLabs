@@ -67,11 +67,25 @@ Detalle por tarea:
   - Borra `use-market-feed.ts` y `use-api-health.ts`.
   - Pone los `data-testid` de lo que ya existe, con una sola copia por nombre en el DOM (regla 6).
     Para eso usa el hook `useMediaQuery` con el corte `lg`.
-- **F2:**
-  - `fetch` con prefijo `/api` o `/market` y `credentials: 'same-origin'`.
-  - Respuestas validadas con los esquemas Zod v2.
-  - Un código fuera de `API_ERROR_CODES` no rompe el cliente y muestra un mensaje genérico. Hasta su
-    tarea 3, el Backend manda `invalid_request` (B1).
+- **F2** (`apps/web/src/lib/api/`):
+  - `fetch` con prefijo `/api` o `/market` y `credentials: 'same-origin'`. El proxy de Vite ya tiene
+    `'^/market/'`, que no choca con `/ws/market`.
+  - Respuestas validadas con los esquemas Zod de `@coin/shared`. El tipo de `data` sale del esquema,
+    y `apps/web` no importa `zod`.
+  - Ninguna falla lanza una excepción. `ApiResult` trae `ok: true` con `status` y `data`, o una de
+    cinco fallas:
+    - `api`: código crudo, `knownCode` y `retryAfterSeconds`;
+    - `http`: un error sin el cuerpo del contrato;
+    - `network`: `offline` o `timeout`, que por defecto es de 15 s;
+    - `invalid_response`;
+    - `aborted`.
+  - Un código fuera de `API_ERROR_CODES` llega crudo con `knownCode: null`. Hasta su tarea 3, el
+    Backend manda `invalid_request` (B1).
+  - `onUnauthorized` avisa de una sesión vencida:
+    - solo en rutas con sesión: no en el login ni en market-data (B4);
+    - una sola vez, aunque fallen varias peticiones a la vez;
+    - vuelve a avisar solo después de un login exitoso.
+  - F4 crea la instancia global del cliente y conecta ese aviso con `/ingreso`.
 - **F3:**
   - Tabla `API_ERROR_CODES` → `i18n`, con un test que exige texto para cada código.
   - `rate_limited` muestra la espera de `Retry-After` (de 1 s a 86.400 s) en segundos, minutos u
@@ -91,6 +105,10 @@ Detalle por tarea:
     realizado del servidor.
 - **F6:**
   - `amountUsd` y `clientOrderId` con `crypto.randomUUID()`; un reintento usa el mismo.
+  - Tiempo agotado (decisión del Gerente en F2): si `POST /orders` da `network: timeout`, la orden
+    pudo ejecutarse en el servidor. El reintento reutiliza el MISMO `clientOrderId`, nunca uno nuevo.
+    Así la idempotencia del Backend devuelve la orden original (200) y no crea una doble. Vale
+    igual para `POST /positions/:id/close` (F7).
   - Confirmación y resultado.
   - Mínimo de la orden (Q9): el cliente bloquea según el costo estimado, comparado con
     `MIN_ORDER_USD` de `@coin/shared`. El costo estimado es la cantidad redondeada hacia abajo a
