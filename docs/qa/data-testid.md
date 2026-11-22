@@ -1,9 +1,8 @@
 # Lista de `data-testid` — V0.1
 
-- Estado: **acordada con el Frontend**. Su lista de 16 nombres (Q1 del 2026-11-21) con los 23 que
-  sumó QA y sus cuatro reglas; los tamaños de pantalla (Q2); y las propuestas de seguimiento del
-  Frontend (Q3 a Q7), que QA acepta. Es la lista que aplica `apps/web` y la que usan las pruebas de
-  `tests/e2e/`.
+- Estado: **cerrada con el Frontend** el 2026-11-21. Incluye su lista de 16 nombres (Q1) con los 23
+  que sumó QA y sus cuatro reglas, los tamaños de pantalla (Q2) y sus cinco ajustes (Q3 a Q7),
+  aceptados por QA. Es la lista que aplica `apps/web` y la que usan las pruebas de `tests/e2e/`.
 - QA mantiene esta lista; el Frontend la aplica. Un nombre, un atributo o un valor de `data-state` no
   se cambia ni se borra sin avisar a QA en el PR, para que QA actualice este archivo.
 - Cuándo llegan a la web: los nombres de lo que ya existe, en la tarea F1 del Frontend; el resto, en
@@ -19,13 +18,16 @@
 3. Los estados van en `data-state`, con los valores de las tablas de abajo. Nunca solo en el texto:
    el texto cambia con el idioma (`i18n`).
 4. Los números llevan `data-value` con el número crudo que mandó el servidor, escrito con
-   `String(n)`: sin redondeo, sin separador de miles, sin moneda y con `-` para los negativos. Las
-   pruebas lo leen con `Number()` y comparan con `GET /account`. Equity, P&L no realizado y P&L de
-   cada posición cambian con cada tick: se comparan con el feed simulado o con una tolerancia.
+   `String(n)`: sin redondeo, sin separador de miles, sin moneda y con `-` para los negativos (por
+   ejemplo `100000`, `99987.65`, `-12.5`). Las pruebas lo leen con `Number()`, nunca como texto. El
+   saldo y el P&L realizado salen tal cual del servidor y se comparan exactos con `GET /account`. La
+   equity, el P&L no realizado y el P&L de cada posición los recalcula el cliente con cada tick
+   (ADR-0004): se comparan con el feed simulado con semilla o con una tolerancia.
 5. `data-error-code` lleva el código exacto que mandó el servidor, aunque no esté en el contrato
    (hoy llega `invalid_request` en vez de `validation_error`, hasta la tarea 3 del Backend), y
-   `network` si no hubo respuesta. Va en `ticket-result`, en `login-error` y en `history-row`
-   rechazada.
+   `network` si no hubo respuesta (es un código del cliente, no de la API). Va en `ticket-result`,
+   en `login-error` y en `history-row` rechazada. En el ingreso, un código inválido llega como
+   `unauthorized` (401) y demasiados intentos como `rate_limited` (429).
 6. Cada `data-testid` existe **una sola vez en el DOM**. El Frontend quita en F1 las copias dobles de
    hoy: la cabecera del símbolo (un botón para celular y un texto para escritorio, en `app.tsx`) y
    las pestañas de posiciones e historial (en `app.tsx` y en `positions-panel.tsx`). Los elementos
@@ -73,10 +75,10 @@ Hoy solo existe en celular: el escritorio todavía no tiene vistas de ranking ni
 
 ### Gráfica
 
-| `data-testid`                | Qué es                                                     | Atributos                                          | Propuso                      |
-| ---------------------------- | ---------------------------------------------------------- | -------------------------------------------------- | ---------------------------- |
-| `chart`                      | Contenedor de la gráfica                                   | `data-state`: `building`, `ready`; `data-interval` | QA (atributos: Frontend, Q6) |
-| `chart-interval-<intervalo>` | Botón de temporalidad: `1m`, `5m`, `15m`, `1h`, `4h`, `1d` | `aria-pressed`                                     | Frontend                     |
+| `data-testid`                | Qué es                                                     | Atributos                                                                                                  | Propuso                      |
+| ---------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `chart`                      | Contenedor de la gráfica                                   | `data-state`: `building`, `ready` (`ready` = al menos 2 velas); `data-interval` con la temporalidad activa | QA (atributos: Frontend, Q6) |
+| `chart-interval-<intervalo>` | Botón de temporalidad: `1m`, `5m`, `15m`, `1h`, `4h`, `1d` | `aria-pressed`                                                                                             | Frontend                     |
 
 ### Ticket
 
@@ -103,6 +105,9 @@ actualiza esta tabla.
 | `account-balance`      | Saldo         | `data-value` | Frontend |
 | `account-equity`       | Equity        | `data-value` | Frontend |
 | `account-realized-pnl` | P&L realizado | `data-value` | QA       |
+
+Llegan con la tarea de la cuenta del Frontend, con datos del servidor. Hoy la barra de arriba
+muestra el saldo inicial fijo (100.000), no el real: ninguna prueba debe depender de esa barra.
 
 ### Posiciones
 
@@ -131,11 +136,11 @@ Una fila no puede tener dos `data-testid`: por eso la del usuario dentro de la t
 
 ### Conexión y sesión
 
-| `data-testid`       | Qué es                                    | Atributos                                          | Propuso                          |
-| ------------------- | ----------------------------------------- | -------------------------------------------------- | -------------------------------- |
-| `connection-status` | Pastilla de conexión                      | `data-state`: `connecting`, `live`, `reconnecting` | Frontend (`data-state` es de QA) |
-| `connection-banner` | Aviso de reconexión                       | —                                                  | QA                               |
-| `logout`            | Botón "Salir" (pruebas de sesión, fase 2) | —                                                  | QA                               |
+| `data-testid`       | Qué es                                                 | Atributos                                          | Propuso                          |
+| ------------------- | ------------------------------------------------------ | -------------------------------------------------- | -------------------------------- |
+| `connection-status` | Pastilla de conexión                                   | `data-state`: `connecting`, `live`, `reconnecting` | Frontend (`data-state` es de QA) |
+| `connection-banner` | Aviso de reconexión; solo existe mientras se reconecta | —                                                  | QA                               |
+| `logout`            | Botón "Salir" (pruebas de sesión, fase 2)              | —                                                  | QA                               |
 
 Los valores de `connection-status` son exactamente los de `ConnectionStatus` en
 `apps/web/src/stores/market-store.ts`.
