@@ -172,7 +172,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  effect: ^3.22.1
+  '@prisma/config>effect': ~3.22.1
 
 importers:
 
