@@ -21,7 +21,6 @@ const envSchema = z.object({
     .positive()
     .max(24 * 31)
     .default(24 * 7),
-  STALE_PRICE_AFTER_MS: z.coerce.number().int().positive().default(30_000),
   API_TRUST_PROXY: z
     .string()
     .trim()
@@ -47,8 +46,6 @@ export type Env = {
   /** Secreto con el que se firman los tokens de sesión. */
   authTokenSecret: string;
   authTokenTtlMs: number;
-  /** Antigüedad máxima de un tick para ejecutar una orden. */
-  stalePriceAfterMs: number;
   /** IP o CIDR del proxy en el que se confía, o `false` si no hay proxy. */
   trustProxy: string | false;
   /** Límites de peticiones en login y órdenes (D-13). */
@@ -80,7 +77,6 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
     redisUrl: env.REDIS_URL ?? DEV_REDIS_URL,
     authTokenSecret: env.AUTH_TOKEN_SECRET ?? DEV_AUTH_TOKEN_SECRET,
     authTokenTtlMs: env.AUTH_TOKEN_TTL_HOURS * 60 * 60 * 1000,
-    stalePriceAfterMs: env.STALE_PRICE_AFTER_MS,
     trustProxy: env.API_TRUST_PROXY
       ? env.API_TRUST_PROXY.split(',')
           .map((entry) => entry.trim())

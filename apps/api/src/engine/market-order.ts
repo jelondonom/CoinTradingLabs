@@ -1,4 +1,4 @@
-import { MIN_ORDER_USD } from '@coin/shared';
+import { MAX_TICK_FUTURE_MS, MIN_ORDER_USD } from '@coin/shared';
 import {
   ZERO,
   dec,
@@ -19,9 +19,6 @@ export type RejectReason =
   | 'below_minimum'
   | 'insufficient_funds'
   | 'insufficient_position';
-
-/** Adelanto máximo tolerado de un tick sobre la hora del servidor, en milisegundos (D-11). */
-export const MAX_FUTURE_SKEW_MS = 2_000;
 
 export type EngineTick = {
   bid: DecimalInput;
@@ -45,7 +42,10 @@ export type MarketOrderInput = {
   instrument: { tradable: boolean; quantityPrecision: number; minQuantity: DecimalInput };
   /** Último tick del servidor, o `null` si el símbolo aún no tiene precio. */
   tick: EngineTick | null;
-  /** Antigüedad máxima del tick, en milisegundos. */
+  /**
+   * Antigüedad máxima del tick, en milisegundos. La API pasa `staleAfterMs(symbol)` de
+   * `@coin/shared` (D-11): el mismo umbral con el que market-data marca el precio obsoleto.
+   */
   staleAfterMs: number;
   balance: DecimalInput;
   position: OpenPosition | null;
@@ -100,7 +100,7 @@ export function executeMarketOrder(input: MarketOrderInput): MarketOrderResult {
   if (!bid.isFinite() || !ask.isFinite() || bid.lte(0) || ask.lt(bid)) return reject('no_price');
   if (now - tick.ts > input.staleAfterMs) return reject('stale_price');
   // Un tick del futuro tampoco es confiable: sin esto seguiría vigente aunque el feed se caiga.
-  if (tick.ts - now > MAX_FUTURE_SKEW_MS) return reject('stale_price');
+  if (tick.ts - now > MAX_TICK_FUTURE_MS) return reject('stale_price');
 
   const quantity = dec(input.quantity);
   if (
