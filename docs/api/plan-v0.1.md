@@ -35,14 +35,14 @@ PR de cada tarea que lo cambie (decisión del Gerente, G8).
 
 ## Hecho
 
-| Tarea                                       | Evidencia                    |
-| ------------------------------------------- | ---------------------------- |
-| DEF-002: tick con fecha futura (D-11)       | PR #10                       |
-| DEF-001: redondeo y mínimo de 10 USD (D-01) | PR #12 y PR #15              |
-| Límite de peticiones (D-13)                 | PR #17                       |
-| Tabla de velas (D-18)                       | PR #20                       |
-| DEF-003: cantidad fuera de `DECIMAL(28,8)`  | PR #21                       |
-| Umbral obsoleto por símbolo desde `shared`  | PR #23 (QA confirmó en Q5)   |
+| Tarea                                       | Evidencia                  |
+| ------------------------------------------- | -------------------------- |
+| DEF-002: tick con fecha futura (D-11)       | PR #10                     |
+| DEF-001: redondeo y mínimo de 10 USD (D-01) | PR #12 y PR #15            |
+| Límite de peticiones (D-13)                 | PR #17                     |
+| Tabla de velas (D-18)                       | PR #20                     |
+| DEF-003: cantidad fuera de `DECIMAL(28,8)`  | PR #21                     |
+| Umbral obsoleto por símbolo desde `shared`  | PR #23 (QA confirmó en Q5) |
 
 ## Orden (Gerente, G7, 2026-11-22)
 
