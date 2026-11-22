@@ -61,8 +61,10 @@ export const orderSchema = z.object({
   side: orderSideSchema,
   type: orderTypeSchema,
   /**
-   * Cantidad ejecutada o pedida, en unidades del activo. Puede ser 0 solo en una orden por monto
-   * rechazada cuyo monto, redondeado hacia abajo con `quantityPrecision`, no alcanza una unidad.
+   * Cantidad ejecutada o pedida, en unidades del activo. Es 0 solo en una orden por monto rechazada
+   * antes de tener una cantidad positiva: por `market_closed`, `no_price` o `stale_price` (no hay
+   * precio con qué calcularla), o porque el monto, redondeado hacia abajo con `quantityPrecision`,
+   * no alcanza una unidad.
    */
   quantity: z.number().nonnegative().finite(),
   /** Monto pedido en USD si la orden fue por monto (D-09); `null` si fue por cantidad. */

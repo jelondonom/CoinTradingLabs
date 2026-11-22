@@ -11,7 +11,7 @@ export const tickSchema = z
     symbol: symbolSchema,
     bid: priceSchema,
     ask: priceSchema,
-    /** Precio de referencia para gráficas y valoración. */
+    /** Precio de referencia para gráficas. Las posiciones largas se valoran al `bid` (D-10). */
     last: priceSchema,
     ts: timestampSchema,
   })

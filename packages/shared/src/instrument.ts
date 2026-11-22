@@ -81,7 +81,8 @@ function define(
 
 /**
  * `pricePrecision` sigue al proveedor de precios.
- * `quantityPrecision` es provisional: lo confirma el Agente Backend Motor de Trading.
+ * `quantityPrecision` lo confirmó el Agente Backend: el motor acepta estos valores (solicitud 6 de
+ * `docs/engine-rules.md`).
  */
 export const INSTRUMENTS: readonly Instrument[] = [
   define('BTCUSD', 'Bitcoin', 'crypto', 2, 5),

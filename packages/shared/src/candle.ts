@@ -41,9 +41,12 @@ export const CANDLES_PATH = '/candles';
 export const CANDLES_DEFAULT_LIMIT = 500;
 export const CANDLES_MAX_LIMIT = 1000;
 
-/** Marca de tiempo en la query string. Un valor vacío (`from=`) cuenta como no enviado. */
+/** En la query string, un valor vacío (`from=`, `limit=`) cuenta como no enviado. */
+const emptyAsUndefined = (value: unknown): unknown => (value === '' ? undefined : value);
+
+/** Marca de tiempo en la query string. */
 const queryTimestampSchema = z.preprocess(
-  (value) => (value === '' ? undefined : value),
+  emptyAsUndefined,
   z.coerce.number().pipe(timestampSchema).optional(),
 );
 
@@ -58,7 +61,10 @@ export const candlesQuerySchema = z
     interval: candleIntervalSchema,
     from: queryTimestampSchema,
     to: queryTimestampSchema,
-    limit: z.coerce.number().int().min(1).max(CANDLES_MAX_LIMIT).default(CANDLES_DEFAULT_LIMIT),
+    limit: z.preprocess(
+      emptyAsUndefined,
+      z.coerce.number().int().min(1).max(CANDLES_MAX_LIMIT).default(CANDLES_DEFAULT_LIMIT),
+    ),
   })
   .refine((q) => q.from === undefined || q.to === undefined || q.from <= q.to, {
     message: 'from debe ser menor o igual que to',
