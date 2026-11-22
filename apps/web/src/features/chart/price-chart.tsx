@@ -159,6 +159,9 @@ export function PriceChart() {
         className="absolute inset-0"
         role="img"
         aria-label={t('chart.label', { symbol })}
+        data-testid="chart"
+        data-state={hasHistory ? 'ready' : 'building'}
+        data-interval={interval}
       />
       {!hasHistory && (
         <p className="pointer-events-none absolute inset-x-4 top-3 text-center text-xs text-muted">

@@ -36,3 +36,8 @@ cambio aquí, lo pide; no lo edita directamente.
 - El cliente muestra saldo, P&L y ranking tal como los envía el servidor; no los calcula.
 - Una orden market nunca envía precio.
 - La atribución a TradingView de Lightweight Charts no se quita.
+- Los `data-testid` siguen `docs/qa/data-testid.md`, la lista de QA:
+  - cada nombre existe una sola vez en el DOM;
+  - los estados van en `data-state`;
+  - los números van en `data-value`, escritos con `String(n)` y sin redondeo.
+- El plan de trabajo de V0.1 está en `docs/web/plan-v0.1.md`.

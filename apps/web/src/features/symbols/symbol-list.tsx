@@ -3,10 +3,12 @@ import { memo, useMemo, useState } from 'react';
 import { PriceMove } from '../../components/price-move.js';
 import { t } from '../../i18n/index.js';
 import { cx } from '../../lib/cx.js';
+import { dataValue } from '../../lib/data-value.js';
 import { formatPrice } from '../../lib/format.js';
 import { useMarketStore } from '../../stores/market-store.js';
 import { useUiStore } from '../../stores/ui-store.js';
 import { filterInstruments, type AssetFilter } from './filter-instruments.js';
+import { symbolState } from './symbol-state.js';
 
 const FILTERS: readonly AssetFilter[] = ['all', 'crypto', 'stock', 'commodity', 'forex'];
 
@@ -25,11 +27,13 @@ const SymbolRow = memo(function SymbolRow({ instrument }: { instrument: Instrume
   const stale = useMarketStore((state) => state.stale[symbol] === true);
   const active = useUiStore((state) => state.symbol === symbol);
   const selectSymbol = useUiStore((state) => state.selectSymbol);
+  const state = symbolState({ hasTick: last !== undefined, stale });
 
   return (
     <li>
       <button
         type="button"
+        data-testid={`symbol-row-${symbol}`}
         aria-current={active ? 'true' : undefined}
         onClick={() => selectSymbol(symbol)}
         className={cx(
@@ -41,13 +45,24 @@ const SymbolRow = memo(function SymbolRow({ instrument }: { instrument: Instrume
           <span className="block font-semibold">{symbol}</span>
           <span className="block truncate text-xs text-muted">{instrument.name}</span>
         </span>
-        {stale && (
-          <span className="rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-muted">
-            ⚠ {t('symbols.stale')}
-          </span>
-        )}
+        {/* Siempre existe para llevar `data-state`; sin aviso queda oculto y no ocupa espacio. */}
+        <span
+          data-testid={`symbol-status-${symbol}`}
+          data-state={state}
+          className={
+            stale
+              ? 'rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-muted'
+              : 'hidden'
+          }
+        >
+          {stale && `⚠ ${t('symbols.stale')}`}
+        </span>
         <span className={cx('text-right tabular-nums', stale && 'text-muted')}>
-          <span className="block font-semibold">
+          <span
+            data-testid={`symbol-price-${symbol}`}
+            data-value={dataValue(last)}
+            className="block font-semibold"
+          >
             {formatPrice(last, instrument.pricePrecision)}
           </span>
           <PriceMove direction={direction} className="block text-xs" />
@@ -69,6 +84,7 @@ export function SymbolList() {
           <span className="sr-only">{t('symbols.search')}</span>
           <input
             type="search"
+            data-testid="symbols-search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t('symbols.search')}
@@ -101,7 +117,9 @@ export function SymbolList() {
       {visible.length === 0 ? (
         <p className="p-4 text-sm text-muted">{t('symbols.empty')}</p>
       ) : (
-        <ul className="min-h-0 flex-1 overflow-y-auto">
+        // `relative`: los textos `sr-only` de `PriceMove` (position: absolute) quedan dentro de la
+        // lista con scroll. Sin un ancestro posicionado escapaban del recorte y alargaban la página.
+        <ul className="relative min-h-0 flex-1 overflow-y-auto">
           {visible.map((instrument) => (
             <SymbolRow key={instrument.symbol} instrument={instrument} />
           ))}

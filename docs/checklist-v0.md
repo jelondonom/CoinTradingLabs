@@ -91,8 +91,8 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] 360 px y escritorio sin scroll horizontal (lo construido).
 - [x] Atribución a TradingView visible.
 - [x] Textos en `i18n`.
-- [ ] `vite` actualizado (D-15) y archivos sin uso borrados.
-- [ ] `data-testid` acordados con QA.
+- [x] `vite` actualizado (D-15) y archivos sin uso borrados — `vite` 8.3.8 ya es la última versión y `pnpm audit` no reporta `picomatch`, así que se cierra sin cambio (G2; salida en el PR de `chore/web-vite-testids`). `use-market-feed.ts` y `use-api-health.ts`, borrados.
+- [x] `data-testid` acordados con QA — `docs/qa/data-testid.md` (PR #24). Los de lo que ya existe están aplicados en `chore/web-vite-testids`, con una sola copia por nombre, probada en `apps/web/src/app.test.tsx`.
 - [ ] Pantalla de ingreso por código (D-04).
 - [ ] Historial de velas y temporalidades 1m, 5m y 1h verificadas.
 - [ ] Estado del símbolo: en vivo, sin precio o no disponible (D-05).

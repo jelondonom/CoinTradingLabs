@@ -1,6 +1,7 @@
 import { INITIAL_BALANCE_USD, getInstrument } from '@coin/shared';
 import { useEffect } from 'react';
 import { ConnectionBanner, ConnectionPill } from './components/connection-status.js';
+import { PanelTabs } from './components/panel-tabs.js';
 import { PriceMove } from './components/price-move.js';
 import { ChartToolbar } from './features/chart/chart-toolbar.js';
 import { PriceChart } from './features/chart/price-chart.js';
@@ -9,13 +10,14 @@ import { PositionsPanel } from './features/positions/positions-panel.js';
 import { SymbolList } from './features/symbols/symbol-list.js';
 import { t } from './i18n/index.js';
 import { cx } from './lib/cx.js';
+import { dataValue } from './lib/data-value.js';
 import { formatMoney, formatPrice } from './lib/format.js';
+import { DESKTOP_QUERY, useMediaQuery } from './lib/use-media-query.js';
 import { startMarketFeed } from './lib/ws/market-feed.js';
 import { useMarketStore } from './stores/market-store.js';
-import { useUiStore, type NavSection, type PanelTab } from './stores/ui-store.js';
+import { useUiStore, type NavSection } from './stores/ui-store.js';
 
 const NAV: readonly NavSection[] = ['terminal', 'markets', 'ranking', 'account'];
-const MOBILE_TABS: readonly PanelTab[] = ['trade', 'positions', 'history'];
 
 function TopBar() {
   return (
@@ -34,8 +36,11 @@ function TopBar() {
   );
 }
 
-/** Símbolo activo y su precio. En móvil, tocarlo abre la lista de mercados. */
-function SymbolHeader() {
+/**
+ * Símbolo activo y su precio. En celular, tocar el símbolo abre la lista de mercados; en escritorio
+ * la lista ya está a la vista y el símbolo es solo texto. Se dibuja una sola de las dos formas.
+ */
+function SymbolHeader({ isDesktop }: { isDesktop: boolean }) {
   const symbol = useUiStore((state) => state.symbol);
   const setNav = useUiStore((state) => state.setNav);
   const last = useMarketStore((state) => state.ticks[symbol]?.last);
@@ -45,56 +50,36 @@ function SymbolHeader() {
 
   return (
     <div className="flex min-h-12 flex-none items-center gap-2 border-b border-line px-3">
-      <button
-        type="button"
-        onClick={() => setNav('markets')}
-        aria-label={`${t('symbols.change')}: ${symbol}`}
-        className="flex min-h-11 items-center gap-1 text-base font-bold lg:hidden"
-      >
-        {symbol}
-        <span aria-hidden="true">▾</span>
-      </button>
-      <span className="hidden text-base font-bold lg:inline">{symbol}</span>
+      {isDesktop ? (
+        <span data-testid="header-symbol" className="text-base font-bold">
+          {symbol}
+        </span>
+      ) : (
+        <button
+          type="button"
+          data-testid="header-symbol"
+          onClick={() => setNav('markets')}
+          aria-label={`${t('symbols.change')}: ${symbol}`}
+          className="flex min-h-11 items-center gap-1 text-base font-bold"
+        >
+          {symbol}
+          <span aria-hidden="true">▾</span>
+        </button>
+      )}
       <span className="min-w-0 flex-1 truncate text-sm text-muted">{instrument.name}</span>
       {stale && (
         <span className="rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-muted">
           ⚠ {t('symbols.stale')}
         </span>
       )}
-      <span className="text-base font-bold tabular-nums">
+      <span
+        data-testid="header-price"
+        data-value={dataValue(last)}
+        className="text-base font-bold tabular-nums"
+      >
         {formatPrice(last, instrument.pricePrecision)}
       </span>
       <PriceMove direction={direction} className="text-sm" />
-    </div>
-  );
-}
-
-function MobileTabs({ visible }: { visible: boolean }) {
-  const mobileTab = useUiStore((state) => state.mobileTab);
-  const setTab = useUiStore((state) => state.setTab);
-  return (
-    <div
-      role="group"
-      aria-label={t('tabs.label')}
-      className={cx(
-        visible ? 'flex' : 'hidden',
-        'flex-none border-b border-line bg-surface lg:hidden',
-      )}
-    >
-      {MOBILE_TABS.map((tab) => (
-        <button
-          key={tab}
-          type="button"
-          aria-pressed={tab === mobileTab}
-          onClick={() => setTab(tab)}
-          className={cx(
-            'min-h-11 flex-1 text-sm',
-            tab === mobileTab ? 'font-bold shadow-[inset_0_-3px_0_var(--text)]' : 'text-muted',
-          )}
-        >
-          {t(`tabs.${tab}`)}
-        </button>
-      ))}
     </div>
   );
 }
@@ -111,6 +96,7 @@ function BottomNav() {
         <button
           key={section}
           type="button"
+          data-testid={`nav-${section}`}
           aria-current={section === nav ? 'page' : undefined}
           onClick={() => setNav(section)}
           className={cx(
@@ -125,13 +111,15 @@ function BottomNav() {
   );
 }
 
-export function App() {
+/**
+ * La terminal, sin efectos. `isDesktop` decide las piezas que cambian de forma con el ancho, para
+ * que cada una exista una sola vez en la página. Los tests la dibujan en los dos anchos.
+ */
+export function AppView({ isDesktop }: { isDesktop: boolean }) {
   const nav = useUiStore((state) => state.nav);
   const mobileTab = useUiStore((state) => state.mobileTab);
   const onTerminal = nav === 'terminal';
   const trading = mobileTab === 'trade';
-
-  useEffect(() => startMarketFeed(), []);
 
   return (
     <div className="flex h-dvh flex-col bg-bg text-text">
@@ -154,14 +142,14 @@ export function App() {
             'min-h-0 flex-none flex-col bg-surface lg:flex lg:h-auto',
           )}
         >
-          <SymbolHeader />
+          <SymbolHeader isDesktop={isDesktop} />
           <ChartToolbar />
           <div className="min-h-0 flex-1">
             <PriceChart />
           </div>
         </section>
 
-        <MobileTabs visible={onTerminal} />
+        {!isDesktop && <PanelTabs isDesktop={false} visible={onTerminal} />}
 
         <section
           className={cx(
@@ -178,7 +166,7 @@ export function App() {
             'min-h-0 flex-1 flex-col border-line lg:col-span-3 lg:flex lg:border-t',
           )}
         >
-          <PositionsPanel />
+          <PositionsPanel isDesktop={isDesktop} />
         </section>
 
         {(nav === 'ranking' || nav === 'account') && (
@@ -190,4 +178,12 @@ export function App() {
       <BottomNav />
     </div>
   );
+}
+
+export function App() {
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+
+  useEffect(() => startMarketFeed(), []);
+
+  return <AppView isDesktop={isDesktop} />;
 }

@@ -15,6 +15,8 @@ export function ConnectionPill() {
   return (
     <span
       role="status"
+      data-testid="connection-status"
+      data-state={connection}
       className={cx(
         'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs whitespace-nowrap',
         live ? 'border-up text-up' : 'border-dashed border-warn-text bg-warn-bg text-warn-text',
@@ -31,7 +33,11 @@ export function ConnectionBanner() {
   const reconnecting = useMarketStore((state) => state.connection === 'reconnecting');
   if (!reconnecting) return null;
   return (
-    <p role="alert" className="flex-none bg-warn-bg px-3 py-2 text-center text-sm text-warn-text">
+    <p
+      role="alert"
+      data-testid="connection-banner"
+      className="flex-none bg-warn-bg px-3 py-2 text-center text-sm text-warn-text"
+    >
       {t('connection.banner')}
     </p>
   );
