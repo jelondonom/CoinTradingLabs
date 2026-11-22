@@ -41,8 +41,9 @@ export const CANDLES_PATH = '/candles';
 export const CANDLES_DEFAULT_LIMIT = 500;
 export const CANDLES_MAX_LIMIT = 1000;
 
-/** En la query string, un valor vacío (`from=`, `limit=`) cuenta como no enviado. */
-const emptyAsUndefined = (value: unknown): unknown => (value === '' ? undefined : value);
+/** En la query string, un valor vacío o solo con espacios (`from=`, `limit=`) cuenta como no enviado. */
+const emptyAsUndefined = (value: unknown): unknown =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
 
 /** Marca de tiempo en la query string. */
 const queryTimestampSchema = z.preprocess(

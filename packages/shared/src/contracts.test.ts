@@ -415,6 +415,9 @@ describe('contrato v2', () => {
         interval: '1m',
         limit: CANDLES_DEFAULT_LIMIT,
       });
+      expect(
+        candlesQuerySchema.parse({ symbol: 'BTCUSD', interval: '1m', from: ' ', limit: ' ' }),
+      ).toEqual({ symbol: 'BTCUSD', interval: '1m', limit: CANDLES_DEFAULT_LIMIT });
       // Sin limit, también el valor por defecto; un limit no numérico sigue siendo inválido.
       expect(candlesQuerySchema.parse({ symbol: 'BTCUSD', interval: '1m' }).limit).toBe(
         CANDLES_DEFAULT_LIMIT,
