@@ -137,7 +137,7 @@ describe('createApiClient: respuestas correctas', () => {
     });
     expect(result).toEqual({
       ok: false,
-      failure: { kind: 'invalid_response', status: 200, path: '/api/auth/login' },
+      failure: { kind: 'invalid_response', status: 200, url: '/api/auth/login' },
     });
   });
 

@@ -38,7 +38,7 @@ export type ApiFailure =
   /** No hubo respuesta: sin red, o se agotó el tiempo. */
   | { kind: 'network'; reason: 'offline' | 'timeout' }
   /** Un 2xx que no cumple el esquema del contrato v2. */
-  | { kind: 'invalid_response'; status: number; path: string }
+  | { kind: 'invalid_response'; status: number; url: string }
   /** Quien llamó canceló la petición con su `signal`. */
   | { kind: 'aborted' };
 
@@ -180,7 +180,8 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
           body: req.body === undefined ? undefined : JSON.stringify(req.body),
           signal: controller.signal,
         });
-        text = await response.text();
+        // Un 2xx sin esquema no usa el cuerpo: no se espera a descargarlo.
+        text = response.ok && !req.schema ? '' : await response.text();
       } catch {
         return noResponse();
       }
@@ -191,7 +192,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         const parsed = json.ok ? req.schema.safeParse(json.value) : { success: false as const };
         return parsed.success
           ? { ok: true, status: response.status, data: parsed.data }
-          : fail({ kind: 'invalid_response', status: response.status, path: url });
+          : fail({ kind: 'invalid_response', status: response.status, url });
       }
 
       if (response.status === 401 && (req.sessionRequired ?? req.service === 'api')) {
