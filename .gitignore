@@ -13,5 +13,7 @@ backups/
 apps/api/src/generated
 .claude/
 # Datos de asistentes y códigos de acceso (D-20): nunca al repo.
+# Los archivos de prueba con datos falsos se llaman *.ejemplo.csv.
 *.codes.csv
+*.cuentas.csv
 /private/
