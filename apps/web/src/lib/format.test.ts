@@ -12,9 +12,20 @@ describe('format', () => {
     expect(formatPrice(undefined, 2)).toBe('—');
   });
 
-  it('formatea dinero con signo', () => {
-    expect(formatMoney(100000)).toBe('$100.000,00');
-    expect(formatMoney(-8.2)).toBe('−$8,20');
+  it('formatea dinero con la moneda escrita, nunca con "$" solo', () => {
+    expect(formatMoney(100000)).toBe('100.000,00 USD');
+    expect(formatMoney(-8.2)).toBe('−8,20 USD');
+    expect(formatMoney(10)).not.toContain('$');
+  });
+
+  it('formatea montos redondos sin decimales', () => {
+    expect(formatMoney(1000, 0)).toBe('1.000 USD');
+    expect(formatMoney(100, 0)).toBe('100 USD');
+  });
+
+  it('une número y moneda con un espacio que no se parte', () => {
+    expect(formatMoney(5000, 0)).not.toMatch(/ USD$/);
+    expect(formatMoney(5000, 0).endsWith(' USD')).toBe(true);
   });
 
   it('formatea cantidades', () => {
