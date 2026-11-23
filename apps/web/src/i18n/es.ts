@@ -49,4 +49,33 @@ export const es = {
   'ticket.simulated': 'Precios simulados de práctica.',
   'positions.empty': 'Aún no tienes posiciones abiertas.',
   'history.empty': 'Aquí verás tus órdenes ejecutadas y rechazadas.',
+  // Errores de la API y del cliente (`lib/api/error-message.ts`). Claros para un principiante.
+  'errors.insufficientFunds': 'No tienes saldo suficiente para esta compra.',
+  'errors.insufficientPosition': 'No tienes esa cantidad para vender.',
+  'errors.invalidQuantity': 'La cantidad no es válida para este símbolo.',
+  'errors.belowMinimum': 'El monto mínimo por orden es {min}.',
+  'errors.noPrice': 'Este símbolo no tiene precio en este momento. Intenta en unos segundos.',
+  'errors.stalePrice': 'El precio de este símbolo no está al día. Espera a que vuelva a moverse.',
+  'errors.marketClosed': 'Este símbolo no está disponible para operar ahora.',
+  'errors.validationError': 'Algún dato no es válido. Revísalo e intenta de nuevo.',
+  'errors.sessionExpired': 'Tu sesión terminó. Vuelve a ingresar con tu código.',
+  'errors.invalidCode': 'Ese código no es válido. Revísalo e intenta de nuevo.',
+  'errors.notFound': 'No encontramos lo que buscabas. Puede que ya no exista.',
+  'errors.rateLimited':
+    'Hiciste muchas solicitudes seguidas. Espera unos segundos e intenta de nuevo.',
+  'errors.rateLimitedWait':
+    'Hiciste muchas solicitudes seguidas. Podrás intentar de nuevo en {wait}.',
+  'errors.internal': 'Algo falló en el servidor. Intenta de nuevo en un momento.',
+  'errors.serverUnavailable':
+    'El servidor no está disponible en este momento. Intenta de nuevo en un momento.',
+  'errors.offline': 'No hay conexión. Revisa tu internet e intenta de nuevo.',
+  'errors.timeout': 'El servidor tardó demasiado en responder. Intenta de nuevo.',
+  'errors.unexpectedResponse': 'Recibimos una respuesta inesperada. Intenta de nuevo.',
+  'errors.unknown': 'Algo salió mal. Intenta de nuevo.',
+  'time.second': '{n} segundo',
+  'time.seconds': '{n} segundos',
+  'time.minute': '{n} minuto',
+  'time.minutes': '{n} minutos',
+  'time.hour': '{n} hora',
+  'time.hours': '{n} horas',
 } as const;
