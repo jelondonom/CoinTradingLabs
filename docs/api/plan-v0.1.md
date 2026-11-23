@@ -35,14 +35,16 @@ PR de cada tarea que lo cambie (decisión del Gerente, G8).
 
 ## Hecho
 
-| Tarea                                       | Evidencia                  |
-| ------------------------------------------- | -------------------------- |
-| DEF-002: tick con fecha futura (D-11)       | PR #10                     |
-| DEF-001: redondeo y mínimo de 10 USD (D-01) | PR #12 y PR #15            |
-| Límite de peticiones (D-13)                 | PR #17                     |
-| Tabla de velas (D-18)                       | PR #20                     |
-| DEF-003: cantidad fuera de `DECIMAL(28,8)`  | PR #21                     |
-| Umbral obsoleto por símbolo desde `shared`  | PR #23 (QA confirmó en Q5) |
+| Tarea                                       | Evidencia                                          |
+| ------------------------------------------- | -------------------------------------------------- |
+| DEF-002: tick con fecha futura (D-11)       | PR #10                                             |
+| DEF-001: redondeo y mínimo de 10 USD (D-01) | PR #12 y PR #15                                    |
+| Límite de peticiones (D-13)                 | PR #17                                             |
+| Tabla de velas (D-18)                       | PR #20                                             |
+| DEF-003: cantidad fuera de `DECIMAL(28,8)`  | PR #21                                             |
+| Umbral obsoleto por símbolo desde `shared`  | PR #23 (QA confirmó en Q5)                         |
+| Alerta alta de `effect`                     | PR #30 del Arquitecto, verificado; QA cerró en Q10 |
+| Tarea 3: errores del contrato y DEF-004     | PR de la rama `feat/api-errores-contrato`          |
 
 ## Orden (Gerente, G7, 2026-11-22)
 
@@ -73,15 +75,19 @@ final. La 9 (ranking) espera además el esquema `leaderboard.ts` del Arquitecto.
   - Un cuerpo que rechaza Fastify (JSON inválido, demasiado grande u otro `Content-Type`)
     responde 400.
 - **`stale_price`:** se borra `toPublicRejectReason`; `rejectReason` sale tal cual.
-- **DEF-004:** el login usa `loginRequestSchema` de `@coin/shared` (recorta los espacios). Su
-  `it.fails` está en `tests/security/api-conformance.test.ts`, fuera de la excepción de
-  `AGENTS.md`: lo voltea QA en su PR (Q7).
+- **DEF-004:** el login usa `loginRequestSchema` de `@coin/shared` (recorta los espacios). Este PR
+  voltea solo su `it.fails` en `tests/security/api-conformance.test.ts`, por la regla del Gerente
+  del 2026-11-22: el PR que corrige un defecto voltea solo esa línea, en cualquier archivo de
+  `tests/`, y QA lo cierra en `docs/qa/defectos.md`.
+- **El 400 no se come otros errores:** solo los errores de Fastify al leer o validar el cuerpo
+  pasan a 400. Los `AppError` (401, 429…) conservan su código y su estado, y el 500 lleva un
+  mensaje fijo.
 - **Limpieza:** se borra `TradingDeps.staleAfterMs`, que QA ya dejó de usar (PR #24).
 - **Pruebas:** `app-error.test.ts`; errores del contrato en `app.test.ts`; `toOrderDto`; integración
   con `stale_price`, `validation_error` y DEF-004.
 - **Checklist:** "Umbral obsoleto por símbolo desde `shared`; `stale_price` hacia afuera" y
   "Errores con el formato `apiError` del contrato v2".
-- **Avisar a:** QA (cerrar DEF-004) y Frontend (códigos nuevos).
+- **Afecta a (lo avisa el Gerente):** QA (cerrar DEF-004) y Frontend (códigos nuevos).
 
 ## Tarea 4 — Login con cookie `coin_session` y logout (D-04)
 
@@ -232,4 +238,11 @@ final. La 9 (ranking) espera además el esquema `leaderboard.ts` del Arquitecto.
   - Q6: quitó `staleAfterMs` de su arnés.
 - **Frontend, 2026-11-21:** B1–B4 sobre el orden de entrega, `Origin`, `Retry-After` y las señales
   de sesión vencida.
-- **Pendientes al empezar cada tarea:** Q7 y F1 (tarea 3), F2 (5), Q8 (7), Q9 (8) y G9 (9).
+- **Pendientes al empezar cada tarea:** decisiones para el Gerente, con una recomendación (los
+  agentes no se piden cosas entre sí; el Gerente decide y avisa):
+  - tarea 5: cuántas órdenes trae el snapshot;
+  - tarea 7: que QA tenga sus propiedades al día antes de la fusión;
+  - tarea 8: 404 para una posición ajena o cerrada;
+  - tarea 9: aclaraciones del desempate D-12.
+- **Gerente, 2026-11-22, tarea 3:** opción A para DEF-004 y regla permanente de `it.fails`; el 400
+  no se come otros errores y el 500 no filtra detalles. El Gerente avisa a QA y al Frontend.

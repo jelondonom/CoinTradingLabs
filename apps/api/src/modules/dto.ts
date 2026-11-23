@@ -1,16 +1,6 @@
-import {
-  orderSchema,
-  symbolSchema,
-  type Order,
-  type OrderRejectReason,
-  type Position,
-} from '@coin/shared';
+import { orderSchema, symbolSchema, type Order, type Position } from '@coin/shared';
 import type { Decimal } from '../engine/index.js';
-import type {
-  Order as OrderRow,
-  OrderRejectReason as DbRejectReason,
-  Position as PositionRow,
-} from '../generated/prisma/client.js';
+import type { Order as OrderRow, Position as PositionRow } from '../generated/prisma/client.js';
 
 /**
  * Único punto donde un decimal se convierte en `number`: el borde de la API (ADR-0002).
@@ -20,15 +10,7 @@ export function toNumber(value: { toString(): string }): number {
   return Number(value.toString());
 }
 
-/**
- * TEMPORAL hasta la tarea T7: `stale_price` sale como `no_price`. El contrato v2 ya lo admite,
- * pero el cambio hacia afuera es parte de T7. `below_minimum` sale tal cual desde el contrato v2.
- * La base guarda siempre el motivo real.
- */
-export function toPublicRejectReason(reason: DbRejectReason): OrderRejectReason {
-  return reason === 'stale_price' ? 'no_price' : reason;
-}
-
+/** La orden tal como la ve el cliente. El motivo de rechazo sale tal cual (contrato v2). */
 export function toOrderDto(row: OrderRow): Order {
   return orderSchema.parse({
     id: row.id,
@@ -40,7 +22,7 @@ export function toOrderDto(row: OrderRow): Order {
     quantity: toNumber(row.quantity),
     status: row.status,
     filledPrice: row.filledPrice ? toNumber(row.filledPrice) : null,
-    rejectReason: row.rejectReason ? toPublicRejectReason(row.rejectReason) : null,
+    rejectReason: row.rejectReason,
     createdAt: row.createdAt.getTime(),
     filledAt: row.filledAt ? row.filledAt.getTime() : null,
   });

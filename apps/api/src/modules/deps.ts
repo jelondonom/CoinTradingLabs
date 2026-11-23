@@ -10,12 +10,6 @@ export type TradingDeps = {
   queue: AccountQueue;
   /** Hora del servidor, en milisegundos desde epoch. */
   now: () => number;
-  /**
-   * @deprecated La API lo ignora: el umbral de cada símbolo es `staleAfterMs(symbol)` de
-   * `@coin/shared` (D-11). Sigue opcional solo para que `tests/security/api-harness.ts` (QA)
-   * compile mientras QA quita ese uso; después se borra.
-   */
-  staleAfterMs?: number;
   tokenSecret: string;
   /** Duración de la sesión. */
   tokenTtlMs: number;
