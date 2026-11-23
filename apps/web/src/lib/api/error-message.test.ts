@@ -108,6 +108,10 @@ describe('formatWait', () => {
     expect(formatWait(0)).toBe('1 segundo');
     expect(formatWait(0.2)).toBe('1 segundo');
   });
+
+  it('un valor que no es número no se muestra como NaN', () => {
+    expect(formatWait(Number.NaN)).toBe('1 segundo');
+  });
 });
 
 describe('rejectReasonMessage', () => {

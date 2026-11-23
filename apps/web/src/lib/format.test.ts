@@ -18,6 +18,11 @@ describe('format', () => {
     expect(formatMoney(10)).not.toContain('$');
   });
 
+  it('un negativo que redondea a cero no lleva signo', () => {
+    expect(formatMoney(-0.004)).toBe('0,00 USD');
+    expect(formatMoney(-0.006)).toBe('−0,01 USD');
+  });
+
   it('formatea montos redondos sin decimales', () => {
     expect(formatMoney(1000, 0)).toBe('1.000 USD');
     expect(formatMoney(100, 0)).toBe('100 USD');

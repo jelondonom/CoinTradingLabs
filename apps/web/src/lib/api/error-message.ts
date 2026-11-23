@@ -36,7 +36,8 @@ const HOUR = 3_600;
  * invitar a reintentar antes de tiempo y chocar otra vez con el límite (B3: de 1 s a 86.400 s).
  */
 export function formatWait(seconds: number): string {
-  const total = Math.max(1, Math.ceil(seconds));
+  // Un valor que no es número no llega a la pantalla como "NaN segundos".
+  const total = Number.isFinite(seconds) ? Math.max(1, Math.ceil(seconds)) : 1;
   if (total < MINUTE) return t(total === 1 ? 'time.second' : 'time.seconds', { n: total });
   const minutes = Math.ceil(total / MINUTE);
   if (minutes < 60) return t(minutes === 1 ? 'time.minute' : 'time.minutes', { n: minutes });

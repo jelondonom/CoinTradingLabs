@@ -31,8 +31,10 @@ const NO_BREAK_SPACE = ' ';
  * ticket, posiciones y errores salen de aquí.
  */
 export function formatMoney(value: number, decimals: 0 | 2 = 2): string {
-  const sign = value < 0 ? '−' : '';
-  return `${sign}${decimalFormatter(decimals).format(Math.abs(value))}${NO_BREAK_SPACE}${CURRENCY}`;
+  const digits = decimalFormatter(decimals).format(Math.abs(value));
+  // El signo sale del valor ya redondeado: −0,004 se muestra como 0,00, no como −0,00.
+  const sign = value < 0 && /[1-9]/.test(digits) ? '−' : '';
+  return `${sign}${digits}${NO_BREAK_SPACE}${CURRENCY}`;
 }
 
 export function formatQuantity(value: number, decimals: number): string {
