@@ -80,21 +80,18 @@ describe('POST /auth/login', () => {
     );
   });
 
-  it.fails(
-    'DEF-004: aplica el esquema del contrato (código sin espacios alrededor, de 4 a 64)',
-    async () => {
-      await fc.assert(
-        fc.asyncProperty(loginCodeArb, async (code) => {
-          const accepted = loginRequestSchema.safeParse(onTheWire({ code })).success;
-          const result = await post('/auth/login', { code });
-          expect(result.reachedDb).toBe(accepted);
-          if (!accepted) expect(result.status).toBe(400);
-        }),
-        {
-          ...RUNS,
-          examples: [['  ab  '], [`${' '.repeat(30)}ABCDE${' '.repeat(30)}`]],
-        },
-      );
-    },
-  );
+  it('DEF-004: aplica el esquema del contrato (código sin espacios alrededor, de 4 a 64)', async () => {
+    await fc.assert(
+      fc.asyncProperty(loginCodeArb, async (code) => {
+        const accepted = loginRequestSchema.safeParse(onTheWire({ code })).success;
+        const result = await post('/auth/login', { code });
+        expect(result.reachedDb).toBe(accepted);
+        if (!accepted) expect(result.status).toBe(400);
+      }),
+      {
+        ...RUNS,
+        examples: [['  ab  '], [`${' '.repeat(30)}ABCDE${' '.repeat(30)}`]],
+      },
+    );
+  });
 });

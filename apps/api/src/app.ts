@@ -3,11 +3,12 @@ import {
   accountClientMessageSchema,
   parseWsMessage,
   type AccountServerMessage,
+  type ApiError,
   type HealthResponse,
 } from '@coin/shared';
 import websocket from '@fastify/websocket';
-import Fastify, { type FastifyInstance } from 'fastify';
-import { AppError } from './errors/app-error.js';
+import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
+import { AppError, internalError, notFound, validationError } from './errors/app-error.js';
 import type { TradingDeps } from './modules/deps.js';
 import { registerTradingRoutes } from './modules/routes.js';
 
@@ -27,6 +28,32 @@ export type AppOptions = {
    */
   trustProxy?: string | false;
 };
+
+/** Responde un error con la forma del contrato (`apiErrorSchema`). */
+function sendError(reply: FastifyReply, error: AppError): FastifyReply {
+  const body: ApiError = { error: { code: error.code, message: error.message } };
+  return reply.code(error.statusCode).headers(error.headers).send(body);
+}
+
+/**
+ * `true` si Fastify rechazó la petición al leer o validar el cuerpo, antes de la ruta: JSON
+ * inválido, cuerpo demasiado grande, `Content-Type` sin parser o URL mal formada. Para el
+ * contrato todos son `validation_error` (400). Cualquier otro error que no sea un `AppError` es un
+ * 500: así un 4xx desconocido nunca se disfraza de error del cliente.
+ */
+function isRequestBodyError(error: unknown): boolean {
+  const { code, statusCode, validation } = error as {
+    code?: unknown;
+    statusCode?: unknown;
+    validation?: unknown;
+  };
+  if (validation !== undefined) return true;
+  if (typeof code === 'string' && (code.startsWith('FST_ERR_CTP_') || code === 'FST_ERR_BAD_URL')) {
+    return true;
+  }
+  // El JSON mal formado llega como un `SyntaxError` con estado 400 y sin código de Fastify.
+  return statusCode === 400;
+}
 
 async function runCheck(check: HealthCheck, timeoutMs: number): Promise<'up' | 'down'> {
   let timer: NodeJS.Timeout | undefined;
@@ -52,22 +79,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   await app.register(websocket);
 
   app.setErrorHandler((error, request, reply) => {
-    if (error instanceof AppError) {
-      return reply
-        .code(error.statusCode)
-        .headers(error.headers)
-        .send({ error: { code: error.code, message: error.message } });
-    }
-    const statusCode = (error as { statusCode?: number }).statusCode;
-    // Errores del propio Fastify por una petición mal formada (JSON inválido, cuerpo enorme).
-    if (statusCode && statusCode >= 400 && statusCode < 500) {
-      return reply
-        .code(statusCode)
-        .send({ error: { code: 'invalid_request', message: 'Petición inválida.' } });
-    }
+    // Los errores de la API conservan su código y su estado (401, 404, 422, 429…).
+    if (error instanceof AppError) return sendError(reply, error);
+    if (isRequestBodyError(error)) return sendError(reply, validationError('Petición inválida.'));
     request.log.error({ err: error }, 'error no controlado');
-    return reply.code(500).send({ error: { code: 'internal', message: 'Error interno.' } });
+    return sendError(reply, internalError());
   });
+
+  app.setNotFoundHandler((_request, reply) => sendError(reply, notFound('La ruta no existe.')));
 
   if (options.trading) registerTradingRoutes(app, options.trading);
 

@@ -78,8 +78,8 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [ ] Orden por monto (D-09) y `POST /positions/:id/close`.
 - [ ] `GET` de posiciones, órdenes e historial.
 - [ ] Eventos del WS de cuenta: orden, posición y saldo.
-- [ ] Umbral obsoleto por símbolo desde `shared`; `stale_price` hacia afuera.
-- [ ] Errores con el formato `apiError` del contrato v2.
+- [x] Umbral obsoleto por símbolo desde `shared`; `stale_price` hacia afuera — PR #23 (test "umbral obsoleto por símbolo desde @coin/shared (D-11)") y test "rechazos" de `trading.integration.test.ts` (`stale_price` tal cual); `toPublicRejectReason` borrado.
+- [x] Errores con el formato `apiError` del contrato v2 — `AppError` toma el estado de `API_ERROR_HTTP_STATUS`; tests "errores del contrato (apiErrorSchema)" de `app.test.ts` y `app-error.test.ts` en verde; DEF-004 de QA ya `it` en `api-conformance.test.ts`.
 - [ ] Ranking por retorno con caché y desempate D-12.
 - [ ] Script de cuentas desde CSV (D-20).
 

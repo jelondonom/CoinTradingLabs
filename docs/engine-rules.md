@@ -196,26 +196,35 @@ archivos.
 | 9   | Publicar en `shared`, junto a `staleAfterMs`, la tolerancia de tick futuro (D-11). Cumplida en el contrato v2: `MAX_TICK_FUTURE_MS` en `price-freshness.ts`, que el motor usa sin copia propia | Datos de Mercado |
 | 10  | Agregar `below_minimum` a los motivos de rechazo y publicar `MIN_ORDER_USD` = 10 (D-01). Cumplida en el contrato v2; el motor y la API ya los usan                                             | Frontend, QA     |
 
-El contrato v2 (PR #11, `CONTRACT_VERSION = 2`) cumple también las solicitudes 1, 2, 4 y 7. El
-motor y la API las adoptan en las tareas T5–T7. Hasta T7, la base guarda el motivo real y la API
-responde `no_price` en lugar de `stale_price` (aprobado por el Gerente el 2026-11-16).
-`below_minimum` sale tal cual. La conversión está en un solo lugar: `toPublicRejectReason`, en
-`apps/api/src/modules/dto.ts`.
+El contrato v2 (PR #11, `CONTRACT_VERSION = 2`) cumple también las solicitudes 1, 2, 4 y 7. La API
+ya adopta la 1 (`stale_price` y `below_minimum` salen tal cual en `rejectReason`), la 2 y la 4.
+De la 7 ya usa `loginRequestSchema` y el formato de error; faltan la cookie de sesión (tarea 4) y
+`GET /account` con `accountResponseSchema` (tarea 6). El cierre de esta sección es la tarea 11.
 
 ## 11. API REST V0
 
-Todas las respuestas de error tienen la forma `{ "error": { "code", "message" } }`, con los
-códigos `invalid_request` (400), `unauthorized` (401), `not_found` (404), `invalid_quantity`
-(422), `rate_limited` (429) e `internal` (500).
+Todas las respuestas de error cumplen `apiErrorSchema` de `@coin/shared`:
+`{ "error": { "code", "message" } }`. El código es uno de `API_ERROR_CODES` y el estado HTTP sale
+de `API_ERROR_HTTP_STATUS` (`apps/api/src/errors/app-error.ts`): `validation_error` (400),
+`unauthorized` (401), `not_found` (404), `invalid_quantity` (422), `rate_limited` (429) e
+`internal` (500).
 
-| Ruta               | Sesión | Qué hace                                                             |
-| ------------------ | ------ | -------------------------------------------------------------------- |
-| `POST /auth/login` | No     | Recibe `{ code }` y devuelve `{ token, expiresAt, accountId }`       |
-| `POST /orders`     | Sí     | Recibe `placeOrderRequestSchema` y devuelve la orden (`orderSchema`) |
-| `GET /account`     | Sí     | Devuelve `{ account, positions }` con las posiciones abiertas        |
+- Una ruta que no existe responde 404 `not_found`.
+- Un cuerpo que Fastify rechaza antes de la ruta (JSON inválido, demasiado grande u otro
+  `Content-Type`) responde 400 `validation_error`, aunque Fastify habría dicho 413 o 415.
+- Los errores de la API conservan su código y su estado: un 429 sigue siendo `rate_limited` con
+  `Retry-After` y un 401 sigue siendo `unauthorized`.
+- Un error no controlado responde 500 `internal` con un mensaje fijo. El detalle va solo al log.
+
+| Ruta               | Sesión | Qué hace                                                                |
+| ------------------ | ------ | ----------------------------------------------------------------------- |
+| `POST /auth/login` | No     | Recibe `loginRequestSchema`; devuelve `{ token, expiresAt, accountId }` |
+| `POST /orders`     | Sí     | Recibe `placeOrderRequestSchema` y devuelve la orden (`orderSchema`)    |
+| `GET /account`     | Sí     | Devuelve `{ account, positions }` con las posiciones abiertas           |
 
 - **Ingreso**: un código de inscripción por asistente, sin contraseña (aprobado por
-  el Gerente el 2026-11-16). El código no distingue mayúsculas, espacios ni guiones. La base
+  el Gerente el 2026-11-16). El código se recorta antes de medir su largo (de 4 a 64, DEF-004) y
+  no distingue mayúsculas, espacios ni guiones. La base
   guarda solo su SHA-256.
 - **Sesión**: cabecera `Authorization: Bearer <token>`. El token dura 7 días por defecto
   (`AUTH_TOKEN_TTL_HOURS`) y se firma con `AUTH_TOKEN_SECRET`.
