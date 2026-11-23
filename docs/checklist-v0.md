@@ -118,5 +118,5 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] k6 de 500 conexiones WebSocket en local — `docs/qa/k6-ws-local.md`: 1.000/1.000 sesiones correctas, 0 errores, conexión en 11 ms (p95).
 - [ ] k6 de 500 conexiones WebSocket en staging, 2 horas (fase 2, depende de D-06).
 - [ ] k6 de ráfagas contra `POST /orders`.
-- [ ] `pnpm audit` sin vulnerabilidades altas.
+- [x] `pnpm audit` sin vulnerabilidades altas — `docs/qa/audit-v0.1.md`: 0 altas sobre `main` en `de42884` (override de `effect`, PR #30); queda 1 moderada de desarrollo.
 - [ ] Reporte Go/No-Go de V0.1 — `docs/qa/go-no-go-v0.1.md`.
