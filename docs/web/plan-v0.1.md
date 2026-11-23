@@ -31,6 +31,9 @@ Si este plan choca con `decisiones-gerente.md`, manda `decisiones-gerente.md`.
   - Ninguna ruta de pantalla empieza por `/api/`, `/market/` ni `/ws/` (A2).
 - **`data-testid`:** siguen `docs/qa/data-testid.md`, la lista de QA y fuente única. Un nombre o un
   valor de `data-state` nuevo o cambiado se avisa a QA en el PR.
+- **Dinero (Gerente, F3):** todo monto visible lleva la moneda escrita, `10,00 USD`, nunca "$" solo.
+  En Colombia "$" se lee como pesos. Sale siempre de `formatMoney` y nunca se arma en una pantalla.
+- **Decisiones entre agentes:** pasan por el Gerente. Los agentes no se piden cosas entre sí.
 
 ## Fase 0 — Preparación (hecha, 2026-11-20)
 
@@ -86,10 +89,23 @@ Detalle por tarea:
     - una sola vez, aunque fallen varias peticiones a la vez;
     - vuelve a avisar solo después de un login exitoso.
   - F4 crea la instancia global del cliente y conecta ese aviso con `/ingreso`.
-- **F3:**
-  - Tabla `API_ERROR_CODES` → `i18n`, con un test que exige texto para cada código.
-  - `rate_limited` muestra la espera de `Retry-After` (de 1 s a 86.400 s) en segundos, minutos u
-    horas (B3).
+- **F3** (`apps/web/src/lib/api/error-message.ts`):
+  - `API_ERROR_MESSAGE: Record<ApiErrorCode, MessageKey>`. Si el contrato suma un código, la web no
+    compila hasta traducirlo.
+  - `errorMessage(failure, { context })`:
+    - `unauthorized` es "código inválido" en el ingreso y "tu sesión terminó" fuera de él (B4);
+    - `below_minimum` usa `MIN_ORDER_USD` con la moneda escrita;
+    - un código desconocido da el texto genérico (B1);
+    - `http`, `network` e `invalid_response` tienen su texto;
+    - `aborted` no muestra nada.
+  - `formatWait`: la espera de `Retry-After` (de 1 s a 86.400 s), redondeada hacia arriba (B3).
+  - `rejectReasonMessage` para órdenes guardadas como rechazadas.
+  - `errorCodeAttribute`, el valor de `data-error-code`: el código crudo del servidor, `network`,
+    `http` o `invalid_response`. Esto último es la Q11, decidida por el Gerente.
+  - `formatMoney` escribe `100.000,00 USD` en toda la app.
+  - F3 es la base de la casilla "Errores del servidor en español claro", pero no la marca: no dibuja
+    ningún error. Se marca en F4 o F6, cuando un error real se vea en pantalla, por ejemplo un
+    código inválido en `/ingreso`.
 - **F4:**
   - Boceto primero. La pantalla vive en `/ingreso` (A2).
   - Sesión solo por la cookie `coin_session` (D-04).
@@ -158,20 +174,22 @@ Sin dependencias nuevas en la Fase 1. F8 puede ir en paralelo a F4–F7.
 
 ## Decisiones y respuestas (2026-11-21 y 2026-11-22)
 
-| ID     | De         | Respuesta                                                                                                          | Aplica en  |
-| ------ | ---------- | ------------------------------------------------------------------------------------------------------------------ | ---------- |
-| G1     | Gerente    | El ranking es la última tarea de V0.1, sin datos de mentira                                                        | Fase 2     |
-| G2     | Gerente    | D-15 se cierra sin cambiar `vite`, con la salida de `pnpm audit` en el PR                                          | F1         |
-| G3     | Gerente    | Revisada: 15m, 4h y 1d se quedan habilitadas                                                                       | F8         |
-| G4     | Gerente    | Carpeta `ctl-frontend-<tarea>`, que se borra tras la fusión                                                        | Todas      |
-| A1     | Arquitecto | El contrato del ranking va en `leaderboard.ts`, sin subir `CONTRACT_VERSION`                                       | Fase 2     |
-| A2     | Arquitecto | Caddy y Vite devuelven `index.html` fuera de `/api`, `/market` y `/ws`; el ingreso usa `/ingreso`                  | F4         |
-| A3     | Arquitecto | Quedan para un contrato 2.1: velas del símbolo que se mira (`candleSymbols`), cambio del día y ranking             | —          |
-| M1     | Datos      | `GET /candles` es su próxima tarea; el historial real llega con su tarea 4                                         | F8, Fase 2 |
-| M2     | Datos      | Siempre llega un `status` por símbolo; "sin precio" se distingue en el cliente; el último tick no se reenvía       | F8         |
-| M3     | Datos      | "No disponible" llega en V0.1 desde `instruments.tradable`, leído cada 30 s                                        | F8         |
-| B1     | Backend    | Sin fechas. Orden: login, monto, cierre y WS de cuenta. Hasta su tarea 3, `invalid_request` y `no_price`           | F2–F7      |
-| B2     | Backend    | `API_ALLOWED_ORIGINS`; un `Origin` no permitido da 403 al abrir el WS, sin 4401                                    | F5         |
-| B3     | Backend    | Todo 429 trae `Retry-After` en segundos. Login: 100 fallidos cada 15 min por IP. Órdenes: 30/min y 1.000/día       | F3, F6     |
-| B4     | Backend    | Sesión vencida: 401 (salvo en el login) y cierre 4401                                                              | F4, F5     |
-| Q1–Q10 | QA         | Lista de `data-testid`, reglas, tamaños de pantalla, mínimo de la orden y caída del feed: `docs/qa/data-testid.md` | Todas      |
+| ID     | De         | Respuesta                                                                                                                          | Aplica en  |
+| ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| G1     | Gerente    | El ranking es la última tarea de V0.1, sin datos de mentira                                                                        | Fase 2     |
+| G2     | Gerente    | D-15 se cierra sin cambiar `vite`, con la salida de `pnpm audit` en el PR                                                          | F1         |
+| G3     | Gerente    | Revisada: 15m, 4h y 1d se quedan habilitadas                                                                                       | F8         |
+| G4     | Gerente    | Carpeta `ctl-frontend-<tarea>`, que se borra tras la fusión                                                                        | Todas      |
+| A1     | Arquitecto | El contrato del ranking va en `leaderboard.ts`, sin subir `CONTRACT_VERSION`                                                       | Fase 2     |
+| A2     | Arquitecto | Caddy y Vite devuelven `index.html` fuera de `/api`, `/market` y `/ws`; el ingreso usa `/ingreso`                                  | F4         |
+| A3     | Arquitecto | Quedan para un contrato 2.1: velas del símbolo que se mira (`candleSymbols`), cambio del día y ranking                             | —          |
+| M1     | Datos      | `GET /candles` es su próxima tarea; el historial real llega con su tarea 4                                                         | F8, Fase 2 |
+| M2     | Datos      | Siempre llega un `status` por símbolo; "sin precio" se distingue en el cliente; el último tick no se reenvía                       | F8         |
+| M3     | Datos      | "No disponible" llega en V0.1 desde `instruments.tradable`, leído cada 30 s                                                        | F8         |
+| B1     | Backend    | Sin fechas. Orden: login, monto, cierre y WS de cuenta. Hasta su tarea 3, `invalid_request` y `no_price`                           | F2–F7      |
+| B2     | Backend    | `API_ALLOWED_ORIGINS`; un `Origin` no permitido da 403 al abrir el WS, sin 4401                                                    | F5         |
+| B3     | Backend    | Todo 429 trae `Retry-After` en segundos. Login: 100 fallidos cada 15 min por IP. Órdenes: 30/min y 1.000/día                       | F3, F6     |
+| B4     | Backend    | Sesión vencida: 401 (salvo en el login) y cierre 4401                                                                              | F4, F5     |
+| Q1–Q10 | QA         | Lista de `data-testid`, reglas, tamaños de pantalla, mínimo de la orden y caída del feed: `docs/qa/data-testid.md`                 | Todas      |
+| Q11    | Gerente    | `data-error-code="http"` (respuesta sin código del contrato) e `"invalid_response"` (2xx fuera de contrato); el Gerente avisa a QA | F3, F4, F6 |
+| F3     | Gerente    | Montos con la moneda escrita (`10,00 USD`) en `formatMoney`; la casilla de errores se marca en F4 o F6, no en F3                   | Todas      |

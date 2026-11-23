@@ -74,7 +74,7 @@ export function OrderTicket() {
                 : 'border-line text-muted',
             )}
           >
-            {formatMoney(option).replace(/,00$/, '')}
+            {formatMoney(option, 0)}
           </button>
         ))}
       </div>
