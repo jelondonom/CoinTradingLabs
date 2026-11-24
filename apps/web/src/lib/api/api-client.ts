@@ -71,7 +71,10 @@ export type ApiClient = {
   request<T>(options: RequestWithSchema<T>): Promise<ApiResult<T>>;
   /** Sin esquema (por ejemplo, un 204): `data` es `undefined`. */
   request(options: RequestWithoutSchema): Promise<ApiResult<undefined>>;
-  /** Permite un nuevo aviso de sesión vencida. Se llama cuando el ingreso sale bien. */
+  /**
+   * Empieza una sesión nueva: permite un nuevo aviso de sesión vencida e ignora los 401 de las
+   * peticiones que empezaron antes. Se llama cuando el ingreso sale bien.
+   */
   clearUnauthorized(): void;
 };
 
@@ -82,9 +85,12 @@ export type ApiClientOptions = {
   timeoutMs?: number;
   /**
    * Sesión vencida: un 401 en una ruta que pide sesión. Se llama una sola vez, aunque fallen varias
-   * peticiones a la vez, hasta el siguiente `clearUnauthorized()`.
+   * peticiones a la vez, hasta el siguiente `clearUnauthorized()`. Un 401 de una petición que empezó
+   * antes del último `clearUnauthorized()` (es decir, de la sesión anterior) se ignora.
    */
-  onUnauthorized?: () => void;
+  onUnauthorized?: (info: { startedAt: number }) => void;
+  /** Reloj inyectable para los tests. */
+  now?: () => number;
 };
 
 const fail = (failure: ApiFailure): ApiResult<never> => ({ ok: false, failure });
@@ -136,18 +142,24 @@ function parseJson(text: string): { ok: true; value: unknown } | { ok: false } {
 export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   const doFetch: FetchLike = options.fetch ?? ((url, init) => globalThis.fetch(url, init));
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const now = options.now ?? Date.now;
   let unauthorizedNotified = false;
+  /** Sube con cada ingreso exitoso (`clearUnauthorized`): separa las peticiones de cada sesión. */
+  let sessionEpoch = 0;
 
-  const notifyUnauthorized = () => {
-    if (unauthorizedNotified) return;
+  const notifyUnauthorized = (epoch: number, startedAt: number) => {
+    // Un 401 de la sesión anterior no saca a quien acaba de ingresar.
+    if (epoch !== sessionEpoch || unauthorizedNotified) return;
     unauthorizedNotified = true;
-    options.onUnauthorized?.();
+    options.onUnauthorized?.({ startedAt });
   };
 
   async function request(
     req: RequestWithSchema<unknown> | RequestWithoutSchema,
   ): Promise<ApiResult<unknown>> {
     if (req.signal?.aborted) return fail({ kind: 'aborted' });
+    const epoch = sessionEpoch;
+    const startedAt = now();
 
     const url = buildUrl(req.service, req.path, req.query);
     const controller = new AbortController();
@@ -196,7 +208,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       }
 
       if (response.status === 401 && (req.sessionRequired ?? req.service === 'api')) {
-        notifyUnauthorized();
+        notifyUnauthorized(epoch, startedAt);
       }
 
       const json = parseJson(text);
@@ -221,6 +233,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   return {
     request: request as ApiClient['request'],
     clearUnauthorized: () => {
+      sessionEpoch += 1;
       unauthorizedNotified = false;
     },
   };

@@ -106,12 +106,32 @@ Detalle por tarea:
   - F3 es la base de la casilla "Errores del servidor en español claro", pero no la marca: no dibuja
     ningún error. Se marca en F4 o F6, cuando un error real se vea en pantalla, por ejemplo un
     código inválido en `/ingreso`.
-- **F4:**
-  - Boceto primero. La pantalla vive en `/ingreso` (A2).
-  - Sesión solo por la cookie `coin_session` (D-04).
-  - Un 401 en `POST /auth/login` significa "código inválido". Un 401 en cualquier otra ruta es
-    sesión vencida y lleva a `/ingreso` (B4).
-  - `POST /auth/logout` (204) cierra el WS de cuenta del cliente.
+- **F4** (boceto aprobado `docs/web/bocetos/ingreso-v1.html`):
+  - **Mirar sí, operar no** (Gerente, 2026-11-23):
+    - sin sesión, la app abre en `/ingreso` (A2), con "Ver el mercado sin ingresar";
+    - la terminal sin sesión muestra el mercado, y el ticket queda en `no-session` con el enlace
+      `ticket-login`.
+  - **Sesión** solo por la cookie `coin_session` (D-04); el cliente no guarda nada de ella.
+    - `checkSession()` al arrancar (`GET /api/account`): solo un 401 es "sin sesión".
+    - Sin red o con el servidor caído queda en `unknown`, sin redirigir. Se reintenta con espera
+      creciente (2 s → 30 s) y con el evento `online` (ajuste 1 del Gerente).
+  - **La elección de invitado** va en `sessionStorage` (dura solo esa pestaña), nunca en
+    `localStorage` (ajuste 2).
+  - **Un 401** en `POST /auth/login` significa "código inválido". En cualquier otra ruta es sesión
+    vencida: lleva a `/ingreso` con el aviso, solo si la sesión estaba abierta (B4).
+    - El cliente ignora el 401 de una petición de la sesión anterior: así se cerró la carrera que
+      dejó F2.
+  - **Salir** (`logout`) solo con sesión. Con cualquier respuesta, salvo una cancelación, cierra la
+    sesión local. F5 cerrará además el WS de cuenta.
+  - **Nombres nuevos** aprobados por el Gerente: `data-state="no-session"`, `login-guest` y
+    `ticket-login`. El Gerente avisa a QA.
+  - **Checklist:**
+    - "Errores del servidor en español claro" se marcó al ver, contra la API real, "Ese código no es
+      válido" con `data-error-code="unauthorized"`.
+    - "Pantalla de ingreso por código (D-04)" no se marca hasta la Fase 2, cuando el Backend tenga el
+      login por cookie (su tarea 4).
+  - **Mientras el Backend use `Bearer`:** un código válido entra, pero al recargar la sesión no
+    sigue, porque todavía no hay cookie.
 - **F5:**
   - WS de cuenta con reconexión: `account.snapshot`, `account.update`, `order.*` y `position.*`.
   - Un cierre 4401, o un `error` con `unauthorized`, lleva a `/ingreso`. Puede pasar a mitad de
