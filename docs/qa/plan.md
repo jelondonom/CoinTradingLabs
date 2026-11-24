@@ -29,24 +29,25 @@ sean correctos y que el ranking sea justo. El evento dura dos días y no hay seg
 Prioridad = impacto × probabilidad. P0 bloquea el Go; P1 se cierra antes del simulacro; P2 antes
 del congreso.
 
-| N.º | Riesgo                                                      | Prioridad | Cómo se prueba                        | Estado                          |
-| --- | ----------------------------------------------------------- | --------- | ------------------------------------- | ------------------------------- |
-| R1  | Dinero creado o perdido por redondeo                        | P0        | Propiedades sobre el motor            | DEF-001 cerrado (D-01)          |
-| R2  | El saldo no coincide con el libro contable                  | P0        | Propiedades; SQL sobre Postgres       | Motor en verde; base pendiente  |
-| R3  | El ranking mostrado no coincide con el reconstruido         | P0        | `pnpm audit:leaderboard`              | Sin ranking todavía             |
-| R4  | Órdenes ejecutadas a un precio obsoleto o que nadie publicó | P0        | Propiedades; resiliencia del feed     | DEF-002 cerrado; feed pendiente |
-| R5  | Una cuenta lee o modifica datos de otra                     | P0        | `tests/security/`                     | Pendiente                       |
-| R6  | Órdenes duplicadas por reintentos o concurrencia            | P0        | Integración con Postgres; ráfagas k6  | Pendiente                       |
-| R7  | Caída o degradación con 500 usuarios                        | P0        | k6: WebSocket y ráfagas de órdenes    | WS local pasa; falta staging    |
-| R8  | Multicuentas y cuentas coordinadas                          | P0        | Señales en `tests/audit/`; reglamento | Reglamento en borrador          |
-| R9  | Sin límite de peticiones en login ni en órdenes             | P1        | `tests/security/`; k6                 | Por verificar                   |
-| R10 | Caída del feed: la pantalla y el motor se contradicen       | P1        | Resiliencia con feed simulado         | Pendiente                       |
-| R11 | Pérdida de datos al reiniciar la API o restaurar la base    | P1        | Simulacro de restauración             | Sin respaldos todavía           |
-| R12 | Sesión robada o compartida: token de 7 días sin revocación  | P1        | `tests/security/`                     | Por verificar                   |
-| R13 | Explotar el gap al abrir la ventana de la competencia       | P1        | Propiedades con reloj controlado      | Parcial (R2 de las propiedades) |
-| R14 | Flujo completo roto en móvil                                | P1        | Playwright con emulación de móvil     | Sin flujo de órdenes en la web  |
-| R15 | Dependencias vulnerables                                    | P2        | `pnpm audit`                          | 0 altas; 1 moderada, solo dev   |
-| R16 | Cabeceras, CORS y TLS mal configurados                      | P2        | OWASP ZAP contra staging              | Sin staging                     |
+| N.º | Riesgo                                                                               | Prioridad | Cómo se prueba                        | Estado                                                                            |
+| --- | ------------------------------------------------------------------------------------ | --------- | ------------------------------------- | --------------------------------------------------------------------------------- |
+| R1  | Dinero creado o perdido por redondeo                                                 | P0        | Propiedades sobre el motor            | DEF-001 cerrado (D-01)                                                            |
+| R2  | El saldo no coincide con el libro contable                                           | P0        | Propiedades; SQL sobre Postgres       | Motor en verde; base pendiente                                                    |
+| R3  | El ranking mostrado no coincide con el reconstruido                                  | P0        | `pnpm audit:leaderboard`              | Sin ranking todavía                                                               |
+| R4  | Órdenes ejecutadas a un precio obsoleto o que nadie publicó                          | P0        | Propiedades; resiliencia del feed     | DEF-002 cerrado; feed pendiente                                                   |
+| R5  | Una cuenta lee o modifica datos de otra                                              | P0        | `tests/security/`                     | Pendiente                                                                         |
+| R6  | Órdenes duplicadas por reintentos o concurrencia                                     | P0        | Integración con Postgres; ráfagas k6  | Pendiente                                                                         |
+| R7  | Caída o degradación con 500 usuarios                                                 | P0        | k6: WebSocket y ráfagas de órdenes    | WS local pasa; falta staging                                                      |
+| R8  | Multicuentas y cuentas coordinadas                                                   | P0        | Señales en `tests/audit/`; reglamento | Reglamento en borrador                                                            |
+| R17 | Bloqueo masivo del login por IP compartida (wifi del evento o proxy mal configurado) | P0        | `tests/security/`; ráfaga en staging  | Decidido (Gerente, 2026-11-24); tests con `it.fails` hasta la tarea 4 del Backend |
+| R9  | Límite de peticiones en login y órdenes que no frena el abuso                        | P1        | `tests/security/`; k6                 | Límite en `main` (PR #17); números por validar                                    |
+| R10 | Caída del feed: la pantalla y el motor se contradicen                                | P1        | Resiliencia con feed simulado         | Pendiente                                                                         |
+| R11 | Pérdida de datos al reiniciar la API o restaurar la base                             | P1        | Simulacro de restauración             | Sin respaldos todavía                                                             |
+| R12 | Sesión robada o compartida: token de 7 días sin revocación                           | P1        | `tests/security/`                     | Por verificar                                                                     |
+| R13 | Explotar el gap al abrir la ventana de la competencia                                | P1        | Propiedades con reloj controlado      | Parcial (R2 de las propiedades)                                                   |
+| R14 | Flujo completo roto en móvil                                                         | P1        | Playwright con emulación de móvil     | Sin flujo de órdenes en la web                                                    |
+| R15 | Dependencias vulnerables                                                             | P2        | `pnpm audit`                          | 0 altas; 1 moderada, solo dev                                                     |
+| R16 | Cabeceras, CORS y TLS mal configurados                                               | P2        | OWASP ZAP contra staging              | Sin staging                                                                       |
 
 ### Riesgos vistos al leer el código, todavía sin probar
 
@@ -54,10 +55,7 @@ Son hipótesis. Ninguna es un defecto hasta que un test la confirme.
 
 - `clientOrderId` era opcional: un reintento sin él duplicaba la orden. El contrato v2, ya en
   `main`, lo vuelve obligatorio; QA lo prueba contra la API en T3.
-- No hay límite de peticiones en `POST /auth/login` ni en `POST /orders`.
 - El WebSocket de mercado es público y no limita conexiones ni suscripciones por cliente.
-- La API responde `no_price` cuando el motivo real es `stale_price` (temporal, aprobado; el
-  Backend lo retira en su tarea T7). `below_minimum` ya sale tal cual desde `11bb4c5`.
 - `GET /account` valora con el último tick aunque sea obsoleto, sin avisarlo en la respuesta.
 - Con D-09 (orden por monto), un monto que no alcanza una unidad deja una orden rechazada con
   `quantity = 0`, como permite el contrato v2. Pero la columna tiene `CHECK quantity > 0`: guardarla
@@ -91,15 +89,45 @@ del bloqueo de la fila.
   esquemas de login, orden, cierre y consulta de velas. Cubren números manipulados (negativos,
   cero, `NaN`, infinitos, texto), campos que fija el servidor (precio, cuenta, estado), símbolos
   falsos, UUID inválidos, contaminación de prototipos y límites de la consulta de velas. La API
-  real rechaza con 400, sin tocar la base, lo que el contrato rechaza en `POST /orders`. Hallazgos:
-  DEF-003 y DEF-004. `POST /positions/:id/close` y `GET /candles` todavía no existen: se probaron
-  solo contra el esquema.
+  real rechaza con 400, sin tocar la base, lo que el contrato rechaza en `POST /orders`. Hallazgos
+  (los dos cerrados): DEF-003 y DEF-004. `POST /positions/:id/close` y `GET /candles` todavía no
+  existen: se probaron solo contra el esquema.
 - Observación sin riesgo: la consulta de velas convierte `limit=0x10` en 16, `1e3` en 1000 y
   `" 7 "` en 7, siempre dentro de 1–1000. Hoy `limit=` vacío se rechaza, aunque `from=` y `to=`
   vacíos cuentan como no enviados. El Arquitecto decidió (2026-11-21) que también cuente como no
   enviado y use 500; lo cambia en `packages/shared/src/candle.ts`. QA agrega ese caso cuando entre
   su PR: un `it.fails` antes pondría en rojo el CI del PR del Arquitecto.
 - Abuso: fuerza bruta de códigos de inscripción, ráfagas de órdenes, rutas de administración.
+- **Login con IP compartida (R17, D-13).** Hoy el límite cuenta 100 fallos por IP cada 15 minutos y,
+  agotado, esa IP recibe 429 aunque el código sea válido. En el wifi del evento, cientos de
+  asistentes salen por una sola IP pública: los errores de tipeo de todos juntos pueden bloquear el
+  ingreso de todos a la vez. Detrás de Caddy, si falta `API_TRUST_PROXY`, todas las peticiones
+  llegan con la IP de Caddy y pasa lo mismo fuera del evento.
+  - **Decisión del Gerente (2026-11-24)**, con la tarea 4 del Backend:
+    - límite por dispositivo con la cookie `coin_device` (`httpOnly`, `Secure`, `SameSite=Lax`): 10
+      fallos cada 15 minutos;
+    - techo por IP de 2.000 fallos cada 15 minutos;
+    - con el techo agotado, un dispositivo que ya entró con un código válido sigue entrando, pero
+      sigue sujeto a sus 10 fallos;
+    - QA valida los números iniciales (D-13);
+    - el Arquitecto pone `API_TRUST_PROXY` detrás de Caddy.
+  - **Automático** (`tests/security/login-device.integration.test.ts`, con Postgres): cuatro
+    casos con `it.fails` hasta la tarea 4, más un caso de control:
+    1. un dispositivo con 10 fallos se bloquea; otro de la misma IP sigue entrando;
+    2. con 150 fallos repartidos entre 30 dispositivos de una IP, un código válido no recibe 429;
+    3. con el techo de la IP agotado, un dispositivo conocido entra y uno nuevo no;
+    4. un dispositivo conocido con 10 fallos sí se bloquea.
+
+    El PR del Backend que lo implemente voltea esas líneas (D-21); QA confirma y cierra R17. Los
+    tests suponen que la API pone `coin_device` en la respuesta de `POST /auth/login` cuando el
+    navegador no la trae.
+
+  - **Staging y simulacro** (fase 2):
+    - por el proxy, el `request.ip` del log es la IP del cliente, no la de Caddy;
+    - ráfaga de apertura: 450 logins desde una sola IP, con entre 10 % y 20 % de errores de tipeo
+      y sus reintentos.
+
+    Criterio de Go: ningún código válido recibe 429.
 - Escaneo base con OWASP ZAP y `pnpm audit`, solo contra staging.
 
 ### 4.3 Datos de mercado (Agente Datos de Mercado)
@@ -126,23 +154,24 @@ del bloqueo de la fila.
 
 ## 5. Criterios Go/No-Go
 
-| Criterio                                                 | Estado            |
-| -------------------------------------------------------- | ----------------- |
-| 500 usuarios simulados 2 horas sin errores               | Local 15 min: sí  |
-| Confirmación de orden en menos de 200 ms (p95) con carga | Sin probar        |
-| Cero defectos Críticos o Altos abiertos                  | Sí, al 2026-11-18 |
-| Restauración de respaldo verificada                      | Sin probar        |
-| Recuperación tras caída del feed verificada              | Sin probar        |
-| Auditoría del ranking sin diferencias                    | Sin probar        |
-| Simulacro con usuarios reales y hallazgos cerrados       | Sin fecha         |
+| Criterio                                                                                          | Estado            |
+| ------------------------------------------------------------------------------------------------- | ----------------- |
+| 500 usuarios simulados 2 horas sin errores                                                        | Local 15 min: sí  |
+| Confirmación de orden en menos de 200 ms (p95) con carga                                          | Sin probar        |
+| Cero defectos Críticos o Altos abiertos                                                           | Sí, al 2026-11-18 |
+| Restauración de respaldo verificada                                                               | Sin probar        |
+| Recuperación tras caída del feed verificada                                                       | Sin probar        |
+| Auditoría del ranking sin diferencias                                                             | Sin probar        |
+| Simulacro con usuarios reales y hallazgos cerrados                                                | Sin fecha         |
+| Ráfaga de apertura (450 logins desde una IP, 10–20 % de errores): ningún código válido recibe 429 | Sin probar        |
 
 ## 6. Lo que QA necesita de cada agente
 
 | De               | Qué                                                                                                         | Para         |
 | ---------------- | ----------------------------------------------------------------------------------------------------------- | ------------ |
-| Backend          | Responder `stale_price` tal cual, sin pasarlo a `no_price` (su tarea T7)                                    | R4           |
 | Backend          | Ruta del ranking (el límite de peticiones ya está en `main`, PR #17)                                        | R3           |
-| Backend          | Corregir DEF-004: el login debe usar `loginRequestSchema` de `@coin/shared` (D-04)                          | R12          |
+| Backend          | Login por dispositivo con techo por IP (tarea 4; voltear los `it.fails` de R17 por D-21)                    | R17          |
+| Arquitecto       | `API_TRUST_PROXY` con la IP o la subred de Caddy en staging y producción                                    | R17          |
 | Backend          | Con D-09, guardar una orden por monto rechazada con `quantity = 0` sin violar el CHECK                      | R1           |
 | Datos de Mercado | Escritura de `last:{symbol}` en Redis y umbral de obsolescencia en una sola fuente                          | R4, R10      |
 | Arquitecto       | `limit=` vacío en `GET /candles` cuenta como no enviado y usa 500 (decidido; PR del Arquitecto en curso)    | —            |
@@ -156,7 +185,8 @@ de peticiones en login y órdenes (PR #17); división del ítem de `tests/securi
 (respuesta del Arquitecto del 2026-11-21, aplicada por QA); DEF-003 corregido por el Backend en el
 PR #21 y cerrado por QA; umbral de precio obsoleto por símbolo (`staleAfterMs(symbol)`) y
 `MAX_TICK_FUTURE_MS` del contrato en la API y el motor (PR #23); alerta alta de `effect`, cerrada
-con el override del PR #30. Falta una prueba de la API que
+con el override del PR #30; `stale_price` hacia afuera y DEF-004 corregidos por el Backend en el
+PR #34 (Tarea 3), y DEF-004 cerrado por QA. Falta una prueba de la API que
 confirme el umbral por símbolo: las propiedades no lo ven, porque el arnés ya le da al motor el
 umbral de cada símbolo.
 

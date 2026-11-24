@@ -40,7 +40,20 @@ async function post(url: string, body: unknown, headers: Record<string, string> 
     headers: { 'content-type': 'application/json', ...headers },
     payload: JSON.stringify(body),
   });
-  return { status: response.statusCode, reachedDb: touched.length > 0 };
+  return {
+    status: response.statusCode,
+    reachedDb: touched.length > 0,
+    errorCode: errorCodeOf(response.body),
+  };
+}
+
+/** `error.code` del cuerpo, o `undefined` si el cuerpo no es JSON o no lo trae. */
+function errorCodeOf(body: string): unknown {
+  try {
+    return (JSON.parse(body) as { error?: { code?: unknown } }).error?.code;
+  } catch {
+    return undefined;
+  }
 }
 
 describe('POST /orders', () => {
@@ -86,7 +99,11 @@ describe('POST /auth/login', () => {
         const accepted = loginRequestSchema.safeParse(onTheWire({ code })).success;
         const result = await post('/auth/login', { code });
         expect(result.reachedDb).toBe(accepted);
-        if (!accepted) expect(result.status).toBe(400);
+        if (!accepted) {
+          expect(result.status).toBe(400);
+          // Desde la Tarea 3 del Backend (PR #34) el cuerpo inválido es `validation_error`.
+          expect(result.errorCode).toBe('validation_error');
+        }
       }),
       {
         ...RUNS,

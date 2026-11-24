@@ -2,8 +2,10 @@
 
 - Estado: **cerrada con el Frontend** el 2026-11-21. Incluye su lista de 16 nombres (Q1) con los 23
   que sumó QA y sus cuatro reglas, los tamaños de pantalla (Q2), sus cinco ajustes (Q3 a Q7) y sus
-  tres precisiones (Q8 a Q10), aceptados por QA. Es la lista que aplica `apps/web` y la que usan las
-  pruebas de `tests/e2e/`.
+  tres precisiones (Q8 a Q10), aceptados por QA. El 2026-11-24 se sumaron `login-guest`,
+  `ticket-login` y el estado `no-session` de `ticket-status` (tarea F4 del Frontend, aviso del
+  Gerente del 2026-11-23), y la regla 5 tomó D-22: son 42 nombres. Es la lista que aplica
+  `apps/web` y la que usan las pruebas de `tests/e2e/`.
 - QA mantiene esta lista; el Frontend la aplica. Un nombre, un atributo o un valor de `data-state` no
   se cambia ni se borra sin avisar a QA en el PR, para que QA actualice este archivo.
 - Cuándo llegan a la web: los nombres de lo que ya existe, en la tarea F1 del Frontend; el resto, en
@@ -25,10 +27,17 @@
    equity, el P&L no realizado y el P&L de cada posición los recalcula el cliente con cada tick
    (ADR-0004): se comparan con el feed simulado con semilla o con una tolerancia.
 5. `data-error-code` lleva el código exacto que mandó el servidor, aunque no esté en el contrato
-   (hoy llega `invalid_request` en vez de `validation_error`, hasta la tarea 3 del Backend), y
-   `network` si no hubo respuesta (es un código del cliente, no de la API). Va en `ticket-result`,
-   en `login-error` y en `history-row` rechazada. En el ingreso, un código inválido llega como
-   `unauthorized` (401) y demasiados intentos como `rate_limited` (429).
+   (un cuerpo inválido llega como `validation_error`, 400). Sin ese código, el cliente pone uno
+   propio, que no es de la API (D-22):
+   - `http`: hubo respuesta, pero sin el código del contrato (por ejemplo, un 502 en HTML del
+     proxy);
+   - `invalid_response`: una respuesta 2xx que no cumple el contrato v2;
+   - `network`: no hubo respuesta;
+   - una petición cancelada no lleva el atributo.
+
+   Va en `ticket-result`, en `login-error` y en `history-row` rechazada. En el ingreso, un código
+   inválido llega como `unauthorized` (401) y demasiados intentos como `rate_limited` (429).
+
 6. Cada `data-testid` existe **una sola vez en el DOM**. El Frontend quita en F1 las copias dobles de
    hoy: la cabecera del símbolo (un botón para celular y un texto para escritorio, en `app.tsx`) y
    las pestañas de posiciones e historial (en `app.tsx` y en `positions-panel.tsx`). Los elementos
@@ -43,11 +52,12 @@ propuestas de seguimiento del Frontend (Q6, Q7).
 
 ### Ingreso
 
-| `data-testid`  | Qué es                       | Atributos         | Propuso                         |
-| -------------- | ---------------------------- | ----------------- | ------------------------------- |
-| `login-code`   | Campo del código             | —                 | Frontend                        |
-| `login-submit` | Botón "Entrar"               | —                 | Frontend                        |
-| `login-error`  | Mensaje de error del ingreso | `data-error-code` | Frontend (el atributo es de QA) |
+| `data-testid`  | Qué es                                                                                | Atributos         | Propuso                         |
+| -------------- | ------------------------------------------------------------------------------------- | ----------------- | ------------------------------- |
+| `login-code`   | Campo del código                                                                      | —                 | Frontend                        |
+| `login-submit` | Botón "Entrar"                                                                        | —                 | Frontend                        |
+| `login-error`  | Mensaje de error del ingreso                                                          | `data-error-code` | Frontend (el atributo es de QA) |
+| `login-guest`  | "Ver el mercado sin ingresar": entra como invitado; la elección dura solo esa pestaña | —                 | Frontend (F4)                   |
 
 ### Cabecera
 
@@ -83,17 +93,21 @@ Hoy solo existe en celular: el escritorio todavía no tiene vistas de ranking ni
 
 ### Ticket
 
-| `data-testid`          | Qué es                                           | Atributos                                               | Propuso                            |
-| ---------------------- | ------------------------------------------------ | ------------------------------------------------------- | ---------------------------------- |
-| `ticket-amount`        | Campo del monto en USD                           | —                                                       | Frontend                           |
-| `ticket-quick-<monto>` | Botón de monto rápido: hoy `100`, `1000`, `5000` | `aria-pressed`                                          | QA                                 |
-| `ticket-estimate`      | Cantidad estimada                                | `data-value`                                            | QA                                 |
-| `ticket-status`        | Por qué el ticket está o no habilitado           | `data-state`: `ready`, `offline`, `stale`, `engine-off` | QA                                 |
-| `ticket-buy`           | Botón "Comprar"                                  | —                                                       | Frontend                           |
-| `ticket-sell`          | Botón "Vender"                                   | —                                                       | Frontend (Q6)                      |
-| `ticket-confirm`       | Botón "Confirmar" de la ventana de confirmación  | —                                                       | Frontend                           |
-| `ticket-cancel`        | Botón "Cancelar" de la ventana de confirmación   | —                                                       | QA                                 |
-| `ticket-result`        | Mensaje de resultado de la orden                 | `data-state`: `success`, `error`; `data-error-code`     | Frontend (los atributos son de QA) |
+| `data-testid`          | Qué es                                            | Atributos                                                             | Propuso                            |
+| ---------------------- | ------------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------- |
+| `ticket-amount`        | Campo del monto en USD                            | —                                                                     | Frontend                           |
+| `ticket-quick-<monto>` | Botón de monto rápido: hoy `100`, `1000`, `5000`  | `aria-pressed`                                                        | QA                                 |
+| `ticket-estimate`      | Cantidad estimada                                 | `data-value`                                                          | QA                                 |
+| `ticket-status`        | Por qué el ticket está o no habilitado            | `data-state`: `ready`, `offline`, `stale`, `engine-off`, `no-session` | QA (`no-session`: Frontend, F4)    |
+| `ticket-buy`           | Botón "Comprar"                                   | —                                                                     | Frontend                           |
+| `ticket-sell`          | Botón "Vender"                                    | —                                                                     | Frontend (Q6)                      |
+| `ticket-confirm`       | Botón "Confirmar" de la ventana de confirmación   | —                                                                     | Frontend                           |
+| `ticket-cancel`        | Botón "Cancelar" de la ventana de confirmación    | —                                                                     | QA                                 |
+| `ticket-result`        | Mensaje de resultado de la orden                  | `data-state`: `success`, `error`; `data-error-code`                   | Frontend (los atributos son de QA) |
+| `ticket-login`         | Enlace "Ingresar" del ticket cuando no hay sesión | —                                                                     | Frontend (F4)                      |
+
+`no-session` (F4): el visitante entró como invitado con `login-guest`. Los botones de orden quedan
+deshabilitados con el motivo escrito y `ticket-login` lleva a `/ingreso`.
 
 Los valores de `ticket-status` pueden cambiar en la tarea F6 del Frontend (quitar `engine-off` y
 sumar `no-price`, `unavailable`, `below-minimum` y `sending`). El Frontend lo avisa en ese PR y QA
@@ -166,7 +180,10 @@ de vista con `nav-*` y `tab-*` antes de cada paso.
 | 6. Saldo y P&L realizado                         | Compara saldo, equity y P&L realizado con `GET /account`                                                             | `account-balance`, `account-equity`, `account-realized-pnl`                                                                            |
 | 7. Aparecer en el ranking                        | Abre el ranking y encuentra su fila                                                                                  | `ranking-me`, `ranking-row-<puesto>` con `data-me="true"`                                                                              |
 
-La venta parcial (`ticket-sell`) es un caso aparte del flujo (`docs/qa/plan.md` §4.4).
+La venta parcial (`ticket-sell`) es un caso aparte del flujo (`docs/qa/plan.md` §4.4). También el
+invitado: entra con `login-guest`, ve la gráfica y el precio en vivo, encuentra `ticket-status` con
+`data-state="no-session"` y los botones de orden deshabilitados, y con `ticket-login` llega al
+ingreso.
 
 **Monto menor al mínimo (Q9).** Lo decide la tarea F6 del Frontend:
 
