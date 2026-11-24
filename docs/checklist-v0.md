@@ -100,7 +100,7 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [ ] Posiciones con P&L vivo y botón Cerrar.
 - [ ] Saldo y equity visibles.
 - [ ] Ranking simple con la posición del usuario resaltada.
-- [ ] Errores del servidor en español claro.
+- [x] Errores del servidor en español claro — en `/ingreso`, contra la API real, un código inválido muestra "Ese código no es válido. Revísalo e intenta de nuevo." (`login-error` con `data-error-code="unauthorized"`). Con la API caída muestra "El servidor no está disponible en este momento" (`data-error-code="http"`). La tabla es exhaustiva para `API_ERROR_CODES` (`apps/web/src/lib/api/error-message.ts`, F3), y la prueba es del PR de `feat/web-login`.
 - [ ] Bundle dividido: ningún chunk mayor a 500 kB.
 
 ## Agente QA + Seguridad
