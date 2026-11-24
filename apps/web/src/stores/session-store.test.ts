@@ -41,6 +41,13 @@ describe('session-store', () => {
     expect(useSessionStore.getState()).toMatchObject({ status: 'anonymous', notice: null });
   });
 
+  it('setAnonymous (Salir) quita el aviso aunque un 401 del logout lo haya puesto', () => {
+    useSessionStore.getState().authenticate(ACCOUNT_ID);
+    useSessionStore.getState().expire();
+    useSessionStore.getState().setAnonymous();
+    expect(useSessionStore.getState()).toMatchObject({ status: 'anonymous', notice: null });
+  });
+
   it('setUnknown no cierra la sesión del servidor: solo dice que no se sabe', () => {
     useSessionStore.getState().setUnknown();
     expect(useSessionStore.getState().status).toBe('unknown');

@@ -105,10 +105,16 @@ export function createSessionActions(deps: SessionDeps) {
     deps.navigate(TERMINAL_ROUTE);
   }
 
-  /** Comprueba la sesión al arrancar. Devuelve la limpieza de los reintentos. */
+  /**
+   * Comprueba la sesión al arrancar. La limpieza cancela los reintentos y deja sin efecto una
+   * comprobación que siga en vuelo (StrictMode monta los efectos dos veces en desarrollo).
+   */
   function start(): () => void {
     void checkSession();
-    return stopRetrying;
+    return () => {
+      generation += 1;
+      stopRetrying();
+    };
   }
 
   return { checkSession, login, logout, enterAsGuest, start };

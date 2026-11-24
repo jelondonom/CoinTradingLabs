@@ -123,6 +123,15 @@ describe('checkSession', () => {
     expect(scheduled[0]?.cancelled).toBe(true);
   });
 
+  it('la limpieza de start deja sin efecto una comprobación en vuelo', async () => {
+    const { actions, store, scheduled } = setup({ getAccount: [OFFLINE] });
+    const stop = actions.start();
+    stop();
+    await flush();
+    expect(store.setUnknown).not.toHaveBeenCalled();
+    expect(scheduled).toHaveLength(0);
+  });
+
   it('la espera no pasa de 30 segundos', async () => {
     const offline = Array.from({ length: 8 }, () => OFFLINE);
     const { actions, scheduled } = setup({ getAccount: offline });

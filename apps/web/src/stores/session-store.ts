@@ -35,7 +35,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     saveGuestChoice(false);
     set({ status: 'authenticated', accountId, guest: false, notice: null });
   },
-  setAnonymous: () => set({ status: 'anonymous', accountId: null }),
+  // Sin sesión por decisión propia (Salir) o del servidor al arrancar: sin aviso de "sesión terminó".
+  setAnonymous: () => set({ status: 'anonymous', accountId: null, notice: null }),
   setUnknown: () => set({ status: 'unknown' }),
   expire: () => {
     const wasAuthenticated = get().status === 'authenticated';

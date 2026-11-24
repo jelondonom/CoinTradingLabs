@@ -4,6 +4,7 @@ import { ConnectionBanner, ConnectionPill } from './components/connection-status
 import { PanelTabs } from './components/panel-tabs.js';
 import { PriceMove } from './components/price-move.js';
 import { LoginScreen } from './features/auth/login-screen.js';
+import { redirectFor } from './features/auth/session-redirect.js';
 import { session } from './features/auth/session.js';
 import { ChartToolbar } from './features/chart/chart-toolbar.js';
 import { PriceChart } from './features/chart/price-chart.js';
@@ -14,7 +15,7 @@ import { t } from './i18n/index.js';
 import { cx } from './lib/cx.js';
 import { dataValue } from './lib/data-value.js';
 import { formatMoney, formatPrice } from './lib/format.js';
-import { LOGIN_ROUTE, TERMINAL_ROUTE, navigate, useRoute, type Route } from './lib/router.js';
+import { navigate, useRoute, type Route } from './lib/router.js';
 import { DESKTOP_QUERY, useMediaQuery } from './lib/use-media-query.js';
 import { startMarketFeed } from './lib/ws/market-feed.js';
 import { useMarketStore } from './stores/market-store.js';
@@ -207,20 +208,13 @@ export function AppView({ isDesktop }: { isDesktop: boolean }) {
   );
 }
 
-/**
- * Lleva a cada quien a su pantalla: sin sesión (un 401 del servidor) y sin haber elegido entrar como
- * invitado, a `/ingreso`; con sesión, fuera de `/ingreso`. Con la sesión en `checking` o `unknown`
- * no mueve a nadie (ajuste 1 del Gerente: sin red no es "sin sesión").
- */
+/** Lleva a cada quien a su pantalla según `redirectFor` (`features/auth/session-redirect.ts`). */
 function useSessionRedirect(route: Route) {
   const status = useSessionStore((state) => state.status);
   const guest = useSessionStore((state) => state.guest);
   useEffect(() => {
-    if (status === 'anonymous' && !guest && route === 'terminal') {
-      navigate(LOGIN_ROUTE, { replace: true });
-    } else if (status === 'authenticated' && route === 'login') {
-      navigate(TERMINAL_ROUTE, { replace: true });
-    }
+    const target = redirectFor(status, guest, route);
+    if (target) navigate(target, { replace: true });
   }, [status, guest, route]);
 }
 
