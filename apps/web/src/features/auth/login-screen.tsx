@@ -89,7 +89,7 @@ export function LoginScreen({ isDesktop }: { isDesktop: boolean }) {
               aria-invalid={error ? true : undefined}
               aria-describedby={message ? errorId : undefined}
               className={cx(
-                'min-h-12 w-full rounded-lg bg-transparent px-3 text-lg tracking-wide uppercase',
+                'min-h-12 w-full rounded-lg bg-transparent px-3 text-lg tracking-wide uppercase placeholder:tracking-normal placeholder:normal-case',
                 error ? 'border-[2.5px] border-text' : 'border-[1.5px] border-text',
               )}
             />
