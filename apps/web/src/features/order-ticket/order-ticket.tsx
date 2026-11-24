@@ -4,7 +4,9 @@ import { t } from '../../i18n/index.js';
 import { cx } from '../../lib/cx.js';
 import { dataValue } from '../../lib/data-value.js';
 import { formatMoney, formatPrice, formatQuantity } from '../../lib/format.js';
+import { LOGIN_ROUTE, navigate } from '../../lib/router.js';
 import { useMarketStore } from '../../stores/market-store.js';
+import { useSessionStore } from '../../stores/session-store.js';
 import { useUiStore } from '../../stores/ui-store.js';
 import { estimateQuantity } from './estimate-quantity.js';
 import { TICKET_STATUS_MESSAGE, ticketStatus } from './ticket-status.js';
@@ -20,13 +22,14 @@ export function OrderTicket() {
   const tick = useMarketStore((state) => state.ticks[symbol]);
   const stale = useMarketStore((state) => state.stale[symbol] === true);
   const live = useMarketStore((state) => state.connection === 'live');
+  const session = useSessionStore((state) => state.status);
   const [amount, setAmount] = useState('1000');
   const inputId = useId();
   const reasonId = useId();
 
   const instrument = getInstrument(symbol);
   const quantity = estimateQuantity(Number(amount), tick?.ask, instrument.quantityPrecision);
-  const status = ticketStatus({ live, stale });
+  const status = ticketStatus({ live, stale, session });
 
   return (
     <div className="flex flex-col gap-3 bg-surface p-3">
@@ -120,6 +123,19 @@ export function OrderTicket() {
       >
         <span aria-hidden="true">ⓘ </span>
         {t(TICKET_STATUS_MESSAGE[status], { symbol })}
+        {status === 'no-session' && (
+          <>
+            {' '}
+            <button
+              type="button"
+              data-testid="ticket-login"
+              onClick={() => navigate(LOGIN_ROUTE)}
+              className="font-semibold underline underline-offset-2"
+            >
+              {t('ticket.login')}
+            </button>
+          </>
+        )}
       </p>
       <p className="text-xs text-muted">{t('ticket.simulated')}</p>
     </div>

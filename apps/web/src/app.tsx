@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import { ConnectionBanner, ConnectionPill } from './components/connection-status.js';
 import { PanelTabs } from './components/panel-tabs.js';
 import { PriceMove } from './components/price-move.js';
+import { LoginScreen } from './features/auth/login-screen.js';
+import { session } from './features/auth/session.js';
 import { ChartToolbar } from './features/chart/chart-toolbar.js';
 import { PriceChart } from './features/chart/price-chart.js';
 import { OrderTicket } from './features/order-ticket/order-ticket.js';
@@ -12,14 +14,17 @@ import { t } from './i18n/index.js';
 import { cx } from './lib/cx.js';
 import { dataValue } from './lib/data-value.js';
 import { formatMoney, formatPrice } from './lib/format.js';
+import { LOGIN_ROUTE, TERMINAL_ROUTE, navigate, useRoute, type Route } from './lib/router.js';
 import { DESKTOP_QUERY, useMediaQuery } from './lib/use-media-query.js';
 import { startMarketFeed } from './lib/ws/market-feed.js';
 import { useMarketStore } from './stores/market-store.js';
+import { useSessionStore } from './stores/session-store.js';
 import { useUiStore, type NavSection } from './stores/ui-store.js';
 
 const NAV: readonly NavSection[] = ['terminal', 'markets', 'ranking', 'account'];
 
 function TopBar() {
+  const authenticated = useSessionStore((state) => state.status === 'authenticated');
   return (
     <header className="flex h-12 flex-none items-center gap-2 border-b border-line bg-surface px-3">
       <span className="font-extrabold tracking-wide lg:hidden">{t('app.shortName')}</span>
@@ -32,7 +37,28 @@ function TopBar() {
           {formatMoney(INITIAL_BALANCE_USD)}
         </span>
       </span>
+      {authenticated && (
+        <button
+          type="button"
+          data-testid="logout"
+          onClick={() => void session.logout()}
+          className="min-h-11 px-1 text-sm font-semibold underline underline-offset-4"
+        >
+          {t('session.logout')}
+        </button>
+      )}
     </header>
+  );
+}
+
+/** Sin red o con el servidor caído no se sabe si hay sesión: se avisa y se reintenta solo. */
+function SessionBanner() {
+  const unknown = useSessionStore((state) => state.status === 'unknown');
+  if (!unknown) return null;
+  return (
+    <p role="status" className="flex-none bg-warn-bg px-3 py-2 text-center text-sm text-warn-text">
+      {t('session.unknown')}
+    </p>
   );
 }
 
@@ -125,6 +151,7 @@ export function AppView({ isDesktop }: { isDesktop: boolean }) {
     <div className="flex h-dvh flex-col bg-bg text-text">
       <TopBar />
       <ConnectionBanner />
+      <SessionBanner />
       <main className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[260px_minmax(0,1fr)_300px] lg:grid-rows-[minmax(0,1fr)_200px]">
         <aside
           className={cx(
@@ -180,10 +207,34 @@ export function AppView({ isDesktop }: { isDesktop: boolean }) {
   );
 }
 
+/**
+ * Lleva a cada quien a su pantalla: sin sesión (un 401 del servidor) y sin haber elegido entrar como
+ * invitado, a `/ingreso`; con sesión, fuera de `/ingreso`. Con la sesión en `checking` o `unknown`
+ * no mueve a nadie (ajuste 1 del Gerente: sin red no es "sin sesión").
+ */
+function useSessionRedirect(route: Route) {
+  const status = useSessionStore((state) => state.status);
+  const guest = useSessionStore((state) => state.guest);
+  useEffect(() => {
+    if (status === 'anonymous' && !guest && route === 'terminal') {
+      navigate(LOGIN_ROUTE, { replace: true });
+    } else if (status === 'authenticated' && route === 'login') {
+      navigate(TERMINAL_ROUTE, { replace: true });
+    }
+  }, [status, guest, route]);
+}
+
 export function App() {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const route = useRoute();
 
   useEffect(() => startMarketFeed(), []);
+  useEffect(() => session.start(), []);
+  useSessionRedirect(route);
 
-  return <AppView isDesktop={isDesktop} />;
+  return route === 'login' ? (
+    <LoginScreen isDesktop={isDesktop} />
+  ) : (
+    <AppView isDesktop={isDesktop} />
+  );
 }
