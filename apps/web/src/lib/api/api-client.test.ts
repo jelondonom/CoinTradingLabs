@@ -334,4 +334,44 @@ describe('createApiClient: sesión vencida (B4)', () => {
     expect(unauthorizedCount()).toBe(1);
     expect(result).toEqual({ ok: false, failure: { kind: 'http', status: 401 } });
   });
+
+  it('onUnauthorized recibe cuándo empezó la petición', async () => {
+    const seen: number[] = [];
+    const client = createApiClient({
+      fetch: async () => json(401, { error: { code: 'unauthorized', message: '' } }),
+      now: () => 1_234,
+      onUnauthorized: ({ startedAt }) => {
+        seen.push(startedAt);
+      },
+    });
+    await client.request({ service: 'api', path: '/account' });
+    expect(seen).toEqual([1_234]);
+  });
+
+  it('un 401 de una petición de la sesión anterior no avisa, aunque llegue después del ingreso', async () => {
+    let releaseOld: (response: Response) => void = () => undefined;
+    let calls = 0;
+    let unauthorized = 0;
+    const client = createApiClient({
+      fetch: () => {
+        calls += 1;
+        // La primera petición queda colgada hasta después del nuevo ingreso.
+        if (calls === 1) return new Promise<Response>((resolve) => (releaseOld = resolve));
+        return Promise.resolve(json(401, { error: { code: 'unauthorized', message: '' } }));
+      },
+      onUnauthorized: () => {
+        unauthorized += 1;
+      },
+    });
+
+    const oldRequest = client.request({ service: 'api', path: '/account' });
+    client.clearUnauthorized(); // ingreso exitoso: sesión nueva
+    releaseOld(json(401, { error: { code: 'unauthorized', message: '' } }));
+    await oldRequest;
+    expect(unauthorized).toBe(0);
+
+    // Un 401 de la sesión nueva sí avisa.
+    await client.request({ service: 'api', path: '/account' });
+    expect(unauthorized).toBe(1);
+  });
 });
