@@ -44,7 +44,7 @@ PR de cada tarea que lo cambie (decisión del Gerente, G8).
 | DEF-003: cantidad fuera de `DECIMAL(28,8)`  | PR #21                                             |
 | Umbral obsoleto por símbolo desde `shared`  | PR #23 (QA confirmó en Q5)                         |
 | Alerta alta de `effect`                     | PR #30 del Arquitecto, verificado; QA cerró en Q10 |
-| Tarea 3: errores del contrato y DEF-004     | PR de la rama `feat/api-errores-contrato`          |
+| Tarea 3: errores del contrato y DEF-004     | PR #34                                             |
 
 ## Orden (Gerente, G7, 2026-11-22)
 
@@ -99,8 +99,29 @@ final. La 9 (ranking) espera además el esquema `leaderboard.ts` del Arquitecto.
   - Si Redis cae, la sesión se acepta igual y queda un aviso en el log, como con D-13.
   - La sesión sigue durando 7 días.
 - **Dependencia:** `@fastify/cookie`, aprobada por el Gerente (G1).
-- **Pruebas:** atributos de la cookie, Bearer → 401, logout → 204, y la misma cookie da 401
-  después del logout.
+- **Límite de login para el Wi-Fi del evento (Gerente, 2026-11-24, opción A con la extra):**
+  - **Riesgo que corrige:** con 100 fallos por IP cada 15 minutos, cientos de asistentes detrás de
+    una sola IP pública pueden bloquear todo el ingreso.
+  - **Cookie `coin_device`:** `HttpOnly`, `Secure` y `SameSite=Lax`. Solo lleva un identificador
+    aleatorio, sin datos de la persona. La pone la API al primer intento de login.
+  - **Límite por dispositivo:** 10 fallos cada 15 minutos (variable nueva). Un dispositivo
+    "conocido", que ya entró con un código válido, también tiene este límite.
+  - **Techo por IP:** 2.000 fallos cada 15 minutos (`RATE_LIMIT_LOGIN_FAILURES_PER_15_MIN`). Con el
+    techo agotado, un dispositivo conocido sigue pudiendo entrar; los nuevos de esa IP reciben 429.
+  - **Números iniciales:** los valida QA (D-13).
+  - **Por qué no abre la fuerza bruta:** hay 31¹⁰ ≈ 8,2 × 10¹⁴ códigos y 800 válidos. A 8.000
+    fallos por hora desde una IP, la probabilidad de acertar alguno en 30 días es de unos 6 en un
+    millón.
+  - **Se descartó** la huella por cabeceras: se falsea fácil y choca entre equipos iguales.
+  - **Arquitecto:** `API_TRUST_PROXY` detrás de Caddy, para ver la IP real de cada cliente (lo
+    pide el Gerente).
+- **Pruebas:**
+  - atributos de la cookie, Bearer → 401, logout → 204, y la misma cookie da 401 después del
+    logout;
+  - un dispositivo con 10 fallos se bloquea y otro de la misma IP sigue entrando;
+  - el techo por IP bloquea a los dispositivos nuevos;
+  - con el techo agotado, un dispositivo conocido entra;
+  - un dispositivo conocido que acumula 10 fallos sí se bloquea.
 - **Checklist:** "Login con cookie `httpOnly` y WS de cuenta autenticado (D-04)", junto con la
   tarea 5.
 - **Avisar a:** Frontend (F4) y QA (R12).
