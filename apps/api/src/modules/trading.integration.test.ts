@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { accountSchema, orderSchema, positionSchema, staleAfterMs } from '@coin/shared';
+import {
+  accountSchema,
+  apiErrorSchema,
+  orderSchema,
+  positionSchema,
+  staleAfterMs,
+} from '@coin/shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../app.js';
@@ -125,6 +131,32 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
 
     const invalid = await app.inject({ method: 'POST', url: '/auth/login', payload: {} });
     expect(invalid.statusCode).toBe(400);
+    expect(apiErrorSchema.parse(invalid.json()).error.code).toBe('validation_error');
+  });
+
+  it('DEF-004: el código se recorta antes de medirlo (loginRequestSchema del contrato)', async () => {
+    const enrollmentCode = generateEnrollmentCode();
+    await createAccount(db, {
+      competitionId,
+      displayName: 'Trader de prueba',
+      enrollmentCode,
+      now: new Date(now),
+    });
+    // 71 caracteres con los espacios: sin recortar pasaría el máximo de 64.
+    const padded = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { code: `${' '.repeat(30)}${enrollmentCode}${' '.repeat(30)}` },
+    });
+    expect(padded.statusCode).toBe(200);
+    // Recortado queda en 2 caracteres: no llega a la base.
+    const short = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { code: '  ab  ' },
+    });
+    expect(short.statusCode).toBe(400);
+    expect(apiErrorSchema.parse(short.json()).error.code).toBe('validation_error');
   });
 
   it('exige sesión en /orders y /account', async () => {
@@ -251,13 +283,13 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
     const trader = await newTrader();
     const base = { symbol: 'BTCUSD', type: 'market' };
 
-    // Precio obsoleto: la base guarda `stale_price`; el contrato aún solo admite `no_price`.
+    // Precio obsoleto: `stale_price` sale tal cual (contrato v2) y la base guarda lo mismo.
     setBtc('60000.00', '60010.00', now - staleAfterMs('BTCUSD') - 1);
     const stale = await order(trader.headers, { ...base, side: 'buy', quantity: 0.1 });
     expect(stale.statusCode).toBe(201);
     expect(orderSchema.parse(stale.json())).toMatchObject({
       status: 'rejected',
-      rejectReason: 'no_price',
+      rejectReason: 'stale_price',
       filledPrice: null,
     });
     const stored = await db.order.findUniqueOrThrow({ where: { id: stale.json().id } });
@@ -330,7 +362,7 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
     for (const payload of cases) {
       const response = await order(trader.headers, payload);
       expect(response.statusCode).toBe(400);
-      expect(response.json().error.code).toBe('invalid_request');
+      expect(apiErrorSchema.parse(response.json()).error.code).toBe('validation_error');
     }
     expect(await db.order.count({ where: { accountId: trader.accountId } })).toBe(0);
   });

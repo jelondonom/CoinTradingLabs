@@ -1,8 +1,8 @@
-import { placeOrderRequestSchema } from '@coin/shared';
+import { loginRequestSchema, placeOrderRequestSchema } from '@coin/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { dec } from '../engine/index.js';
-import { invalidQuantity, invalidRequest, unauthorized } from '../errors/app-error.js';
+import { invalidQuantity, unauthorized, validationError } from '../errors/app-error.js';
 import { getAccountView } from './accounts/get-account.js';
 import { hashEnrollmentCode } from './auth/enrollment-code.js';
 import { signToken, verifyToken, type TokenClaims } from './auth/token.js';
@@ -12,11 +12,10 @@ import { placeOrder } from './orders/place-order.js';
 import { fitsQuantityColumn, recordRefusedOrder } from './orders/quantity-column.js';
 
 /**
- * Contrato de login. Vive aquí hasta que el Arquitecto lo mueva a `@coin/shared`
- * (solicitud 7 de `docs/engine-rules.md`).
+ * Respuesta de login con token Bearer. Se queda hasta la tarea 4 (cookie `coin_session`, D-04),
+ * cuando pasa a `loginResponseSchema` de `@coin/shared`.
  */
-export const loginRequestSchema = z.object({ code: z.string().min(4).max(64) });
-export type LoginResponse = { token: string; expiresAt: number; accountId: string };
+export type BearerLoginResponse = { token: string; expiresAt: number; accountId: string };
 
 /** Lee y valida el token de la cabecera `Authorization: Bearer <token>`. */
 function authenticate(request: FastifyRequest, deps: TradingDeps): TokenClaims {
@@ -29,13 +28,13 @@ function authenticate(request: FastifyRequest, deps: TradingDeps): TokenClaims {
 
 /** Rutas REST de trading: login, órdenes y cuenta. */
 export function registerTradingRoutes(app: FastifyInstance, deps: TradingDeps): void {
-  app.post('/auth/login', async (request): Promise<LoginResponse> => {
+  app.post('/auth/login', async (request): Promise<BearerLoginResponse> => {
     // D-13: todo intento cuenta por IP desde que entra; si sale bien, deja de contar.
     // Así solo quedan contados los fallidos. Ver `docs/engine-rules.md` §11.
     const attempt = await deps.rateLimits.startLogin(request.ip);
 
     const body = loginRequestSchema.safeParse(request.body);
-    if (!body.success) throw invalidRequest('Envía el código de inscripción en `code`.');
+    if (!body.success) throw validationError('Envía el código de inscripción en `code`.');
 
     const user = await deps.db.user.findUnique({
       where: { loginId: hashEnrollmentCode(body.data.code) },
@@ -60,7 +59,7 @@ export function registerTradingRoutes(app: FastifyInstance, deps: TradingDeps): 
     // D-13: cuenta toda petición autenticada, antes de tocar la base o la cola de la cuenta.
     await deps.rateLimits.consumeOrder(claims.accountId);
     const body = placeOrderRequestSchema.safeParse(request.body);
-    if (!body.success) throw invalidRequest(z.prettifyError(body.error));
+    if (!body.success) throw validationError(z.prettifyError(body.error));
 
     // DEF-003: una cantidad que no cabe en `orders.quantity` no se puede guardar ni como orden
     // rechazada. Se responde 422 sin orden y queda el intento en el log y en `audit_logs`. Va

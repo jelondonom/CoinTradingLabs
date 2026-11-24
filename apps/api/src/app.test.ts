@@ -1,8 +1,13 @@
-import { healthResponseSchema } from '@coin/shared';
+import {
+  API_ERROR_HTTP_STATUS,
+  apiErrorSchema,
+  healthResponseSchema,
+  type ApiErrorCode,
+} from '@coin/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from './app.js';
-import { rateLimited } from './errors/app-error.js';
+import { rateLimited, unauthorized } from './errors/app-error.js';
 
 let app: FastifyInstance | undefined;
 
@@ -48,6 +53,83 @@ describe('GET /health', () => {
 
     expect(response.statusCode).toBe(503);
     expect(response.json().checks).toEqual({ postgres: 'down' });
+  });
+});
+
+describe('errores del contrato (apiErrorSchema)', () => {
+  /** El cuerpo cumple `apiErrorSchema` y el estado es el de `API_ERROR_HTTP_STATUS`. */
+  function expectApiError(
+    response: { statusCode: number; json: () => unknown },
+    code: ApiErrorCode,
+  ): string {
+    const body = apiErrorSchema.parse(response.json());
+    expect(body.error.code).toBe(code);
+    expect(response.statusCode).toBe(API_ERROR_HTTP_STATUS[code]);
+    return body.error.message;
+  }
+
+  async function appWithEcho(): Promise<FastifyInstance> {
+    const instance = await buildApp({ checks: {} });
+    instance.post('/eco', async (request) => request.body);
+    return instance;
+  }
+
+  it('una ruta que no existe responde 404 not_found', async () => {
+    app = await buildApp({ checks: {} });
+    expectApiError(await app.inject({ method: 'GET', url: '/no-existe' }), 'not_found');
+  });
+
+  it('JSON inválido y Content-Type sin parser responden 400 validation_error', async () => {
+    app = await appWithEcho();
+    const badJson = await app.inject({
+      method: 'POST',
+      url: '/eco',
+      headers: { 'content-type': 'application/json' },
+      payload: '{"code":',
+    });
+    expectApiError(badJson, 'validation_error');
+    // Fastify diría 415; para el contrato es un 400.
+    const xml = await app.inject({
+      method: 'POST',
+      url: '/eco',
+      headers: { 'content-type': 'application/xml' },
+      payload: '<code>ABCDE</code>',
+    });
+    expectApiError(xml, 'validation_error');
+    // Más de 1 MiB (límite por defecto): Fastify diría 413.
+    const huge = await app.inject({
+      method: 'POST',
+      url: '/eco',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ code: 'x'.repeat(1_100_000) }),
+    });
+    expectApiError(huge, 'validation_error');
+  });
+
+  it('un 429 sigue siendo 429 rate_limited con Retry-After, y un 401 sigue siendo 401', async () => {
+    app = await buildApp({ checks: {} });
+    app.get('/limitado', async () => {
+      throw rateLimited('Demasiadas órdenes. Intenta de nuevo en 9 s.', 9);
+    });
+    app.get('/privado', async () => {
+      throw unauthorized();
+    });
+    const limited = await app.inject({ method: 'GET', url: '/limitado' });
+    expectApiError(limited, 'rate_limited');
+    expect(limited.headers['retry-after']).toBe('9');
+    expectApiError(await app.inject({ method: 'GET', url: '/privado' }), 'unauthorized');
+  });
+
+  it('un error no controlado responde 500 internal sin filtrar su mensaje', async () => {
+    app = await buildApp({ checks: {} });
+    const secret = 'relation "users" en /srv/coin/app/dist/db.js:42 (SELECT login_id)';
+    app.get('/falla', async () => {
+      throw new Error(secret);
+    });
+    const response = await app.inject({ method: 'GET', url: '/falla' });
+    expect(expectApiError(response, 'internal')).toBe('Error interno.');
+    expect(response.body).not.toContain('SELECT');
+    expect(response.body).not.toContain('/srv/coin');
   });
 });
 
