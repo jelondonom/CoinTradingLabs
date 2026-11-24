@@ -1,11 +1,13 @@
 /**
  * Arma la API real (`buildApp` de `apps/api`) para las pruebas de `tests/security/`, con reloj
- * fijo, secreto de prueba y límites de peticiones que ninguna prueba alcanza. Se importa por ruta
- * relativa, como el motor en `tests/properties/`, y nunca se modifica.
+ * fijo y secreto de prueba. Por defecto, con límites de peticiones que ninguna prueba alcanza; con
+ * `rateLimits: 'd13'`, con los números por defecto de la API (D-13). Se importa por ruta relativa,
+ * como el motor en `tests/properties/`, y nunca se modifica.
  */
 import { SESSION_COOKIE_NAME } from '@coin/shared';
 import { buildApp } from '../../apps/api/src/app.js';
 import type { Db } from '../../apps/api/src/db/prisma.js';
+import { loadEnv } from '../../apps/api/src/env.js';
 import { signToken } from '../../apps/api/src/modules/auth/token.js';
 import { AccountQueue } from '../../apps/api/src/modules/orders/account-queue.js';
 import { MemoryTickSource } from '../../apps/api/src/modules/orders/tick-source.js';
@@ -13,6 +15,7 @@ import { MemoryCounterStore } from '../../apps/api/src/modules/rate-limit/counte
 import {
   RateLimiter,
   TradingRateLimits,
+  type RateLimitConfig,
 } from '../../apps/api/src/modules/rate-limit/rate-limiter.js';
 
 export type Api = Awaited<ReturnType<typeof buildApp>>;
@@ -22,25 +25,36 @@ export const NOW = 1_800_000_000_000;
 const SECRET = 'secreto-de-prueba-de-qa-con-mas-de-32-caracteres';
 const SESSION_MS = 60 * 60 * 1000;
 
-/** Límites de D-13 que ninguna prueba alcanza: aquí se prueba la validación, no los límites. */
-function unreachableRateLimits(): TradingRateLimits {
+/**
+ * `unreachable`: ninguna prueba alcanza los límites; aquí se prueba la validación, no los límites.
+ * `d13`: los números por defecto de la API (`loadEnv`), sin copiarlos. Las dos toman las llaves de
+ * `loadEnv`, así que siguen sirviendo si la API agrega un límite nuevo.
+ */
+export type RateLimitMode = 'unreachable' | 'd13';
+
+function rateLimits(mode: RateLimitMode): TradingRateLimits {
+  const d13 = loadEnv({}).rateLimits;
   const huge = 1_000_000_000;
+  const config =
+    mode === 'd13'
+      ? d13
+      : (Object.fromEntries(Object.keys(d13).map((key) => [key, huge])) as RateLimitConfig);
   return new TradingRateLimits(
     new RateLimiter(
       new MemoryCounterStore(),
       () => NOW,
       () => {},
     ),
-    {
-      loginFailuresPer15Min: huge,
-      ordersPerMinute: huge,
-      ordersPerDay: huge,
-    },
+    config,
   );
 }
 
 /** La API real con la base y los precios que reciba. */
-export function startApi(db: Db, ticks = new MemoryTickSource()): Promise<Api> {
+export function startApi(
+  db: Db,
+  ticks = new MemoryTickSource(),
+  options: { rateLimits?: RateLimitMode } = {},
+): Promise<Api> {
   return buildApp({
     checks: {},
     trading: {
@@ -50,7 +64,7 @@ export function startApi(db: Db, ticks = new MemoryTickSource()): Promise<Api> {
       now: () => NOW,
       tokenSecret: SECRET,
       tokenTtlMs: SESSION_MS,
-      rateLimits: unreachableRateLimits(),
+      rateLimits: rateLimits(options.rateLimits ?? 'unreachable'),
     },
   });
 }

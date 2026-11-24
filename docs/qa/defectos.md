@@ -10,7 +10,7 @@
 | DEF-001 | Alta      | Motor  | Cerrado (2026-11-18) | El redondeo a centavos por orden crea dinero         |
 | DEF-002 | Media     | Motor  | Cerrado (2026-11-18) | Un tick con fecha futura nunca se considera obsoleto |
 | DEF-003 | Media     | API    | Cerrado (2026-11-21) | Una cantidad fuera de `DECIMAL(28,8)` responde 500   |
-| DEF-004 | Baja      | API    | Abierto              | El login no aplica el esquema del contrato v2        |
+| DEF-004 | Baja      | API    | Cerrado (2026-11-24) | El login no aplica el esquema del contrato v2        |
 
 Probado el 2026-11-16 sobre la rama `feat/api-engine-v0` (commit `9dc48f8`). Vuelto a probar el
 mismo día sobre `main` (commit `ed77101`), ya con el motor integrado: los dos seguían abiertos.
@@ -19,7 +19,9 @@ de DEF-001 (`37fc65a`, ajustada al contrato v2 en `11bb4c5`), la de DEF-002 (`0f
 `main`) y `main` al día: los dos se cierran. Detalle en la sección "Cierre" de cada uno.
 
 DEF-003 y DEF-004 se probaron el 2026-11-21 sobre `main` en `4d12094`. DEF-003 se volvió a probar
-el mismo día sobre `main` en `268bf1e`, ya con la corrección del PR #21, y se cierra.
+el mismo día sobre `main` en `268bf1e`, ya con la corrección del PR #21, y se cierra. DEF-004 se
+volvió a probar el 2026-11-24 sobre `main` en `7870ec2`, ya con la corrección del PR #34, y se
+cierra.
 
 ## DEF-001: el redondeo a centavos por orden crea dinero
 
@@ -72,8 +74,9 @@ orden, o un límite de órdenes por cuenta. El límite solo reduce el daño; no 
   guardia G2 confirma que ejecuta órdenes: 1.113 compras y 543 ventas, y 529 `below_minimum`.
 - Propiedades E2 (techo y piso), E4 (un ciclo cuesta el spread más menos de 2 centavos) y R1
   (orden de los rechazos con `below_minimum`) en verde. G1: 125 `below_minimum`.
-- Desde `11bb4c5` el motor lee el mínimo de `MIN_ORDER_USD` (`@coin/shared`) y la API responde
-  `below_minimum` tal cual (`toPublicRejectReason` en `apps/api/src/modules/dto.ts` y su test).
+- Desde `11bb4c5` el motor lee el mínimo de `MIN_ORDER_USD` (`@coin/shared`). Desde la Tarea 3 del
+  Backend (PR #34, `dc3d1bf`) la API responde todos los motivos de rechazo tal cual, `below_minimum`
+  y `stale_price` incluidos: ya no existe `toPublicRejectReason`.
 
 ## DEF-002: un tick con fecha futura nunca se considera obsoleto
 
@@ -154,12 +157,23 @@ Postgres (corre en el CI).
 1. `POST /auth/login` con `{"code":"  ab  "}`.
 2. `POST /auth/login` con un código de 5 caracteres y 30 espacios a cada lado.
 
-**Resultado esperado**: el paso 1 se rechaza con 400 (sin espacios tiene 2 caracteres); el paso 2
-pasa la validación (sin espacios tiene 5).
+**Resultado esperado**: el paso 1 se rechaza con 400 `validation_error` (sin espacios tiene 2
+caracteres); el paso 2 pasa la validación (sin espacios tiene 5).
 
 **Resultado real**: el paso 1 pasa la validación y llega a la base; el paso 2 se rechaza con 400.
 
 **Evidencia**: `tests/security/api-conformance.test.ts`, caso `DEF-004` con `it.fails`, sin Postgres.
+
+**Cierre** (2026-11-24)
+
+- Corrección del Backend en su Tarea 3 (PR #34, `dc3d1bf`): el login usa `loginRequestSchema` de
+  `@coin/shared`, que recorta el código antes de medirlo, y un cuerpo inválido responde 400
+  `validation_error` (antes `invalid_request`). En el mismo PR el Backend pasó el caso de
+  `it.fails` a `it` y no cambió nada más en `tests/` (D-21).
+- Vuelto a probar sobre `main` en `7870ec2`: el caso `DEF-004` está en verde en 300 corridas, con los
+  dos pasos como ejemplos fijos. `"  ab  "` da 400 sin tocar la base; el código de 5 caracteres con
+  30 espacios a cada lado llega a la base.
+- QA reforzó el caso: además del 400, exige `error.code = validation_error`.
 
 ## Cómo se cierra un defecto
 
