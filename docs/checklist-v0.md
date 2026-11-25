@@ -109,7 +109,7 @@ dibujo, calendario de bolsa, onboarding guiado, idioma inglés, producción.
 - [x] Borrador del reglamento anti-trampa.
 - [x] 16 tests de propiedades sobre invariantes contables.
 - [x] Lista de defectos con severidad — `docs/qa/defectos.md`.
-- [x] Reglamento actualizado con D-05, D-08, D-12, D-13 y D-19 — `docs/qa/reglamento-anti-trampa.md` v0.2.
+- [x] Reglamento actualizado con D-05, D-08, D-12, D-13 y D-19 — `docs/qa/reglamento-anti-trampa.md` v0.4 (límites de D-13 validados y aviso de `coin_device` aprobado por el Gerente el 2026-11-25).
 - [x] `tests/security/`: payloads manipulados contra los esquemas v2 — PR #19: `tests/security/payloads-v2.test.ts` y `api-conformance.test.ts` en verde con `pnpm test`; hallazgos DEF-003 y DEF-004 en `docs/qa/defectos.md`.
 - [ ] `tests/security/`: cuenta ajena y sesión vencida o alterada (fase 2, después del login por cookie).
 - [ ] Idempotencia y concurrencia probadas con Postgres.
