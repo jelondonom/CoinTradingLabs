@@ -1,5 +1,13 @@
-import { loginRequestSchema, placeOrderRequestSchema } from '@coin/shared';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { createHash, randomBytes } from 'node:crypto';
+import {
+  LOGIN_PATH,
+  LOGOUT_PATH,
+  SESSION_COOKIE_NAME,
+  loginRequestSchema,
+  placeOrderRequestSchema,
+  type LoginResponse,
+} from '@coin/shared';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { dec } from '../engine/index.js';
 import { invalidQuantity, unauthorized, validationError } from '../errors/app-error.js';
@@ -11,27 +19,60 @@ import { toOrderDto } from './dto.js';
 import { placeOrder } from './orders/place-order.js';
 import { fitsQuantityColumn, recordRefusedOrder } from './orders/quantity-column.js';
 
-/**
- * Respuesta de login con token Bearer. Se queda hasta la tarea 4 (cookie `coin_session`, D-04),
- * cuando pasa a `loginResponseSchema` de `@coin/shared`.
- */
-export type BearerLoginResponse = { token: string; expiresAt: number; accountId: string };
+/** Cookie del dispositivo para el límite de login (D-13). Solo lleva un identificador aleatorio. */
+export const DEVICE_COOKIE_NAME = 'coin_device';
+/** Vida de `coin_device` (G-C, Gerente, 2026-11-25). */
+const DEVICE_COOKIE_MAX_AGE_S = 90 * 24 * 60 * 60;
+/** 128 bits en base64url. */
+const DEVICE_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/;
 
-/** Lee y valida el token de la cabecera `Authorization: Bearer <token>`. */
-function authenticate(request: FastifyRequest, deps: TradingDeps): TokenClaims {
-  const header = request.headers.authorization;
-  const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : null;
+/** Huella del token para la lista negra: el token en claro nunca se guarda. */
+function tokenHash(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+/**
+ * Lee la sesión de la cookie `coin_session` (D-04). La cabecera `Authorization` no se mira: con una
+ * cookie válida decide la cookie, y un Bearer solo da 401. Un token revocado al cerrar sesión
+ * también da 401.
+ */
+async function authenticate(request: FastifyRequest, deps: TradingDeps): Promise<TokenClaims> {
+  const token = request.cookies[SESSION_COOKIE_NAME];
   const claims = token ? verifyToken(token, deps.tokenSecret, deps.now()) : null;
-  if (!claims) throw unauthorized();
+  if (!token || !claims) throw unauthorized();
+  if (await deps.rateLimits.isSessionRevoked(tokenHash(token))) throw unauthorized();
   return claims;
 }
 
-/** Rutas REST de trading: login, órdenes y cuenta. */
+/**
+ * El dispositivo del navegador. Si no trae `coin_device` o la trae mal formada, se le pone una
+ * nueva en esta respuesta, aunque el login falle: el fallo ya cuenta para ese dispositivo.
+ */
+function deviceIdOf(request: FastifyRequest, reply: FastifyReply, deps: TradingDeps): string {
+  const current = request.cookies[DEVICE_COOKIE_NAME];
+  if (current && DEVICE_ID_PATTERN.test(current)) return current;
+  const deviceId = randomBytes(16).toString('base64url');
+  reply.setCookie(DEVICE_COOKIE_NAME, deviceId, {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+    secure: deps.secureCookies ?? false,
+    maxAge: DEVICE_COOKIE_MAX_AGE_S,
+  });
+  return deviceId;
+}
+
+/** Rutas REST de trading: login, logout, órdenes y cuenta. */
 export function registerTradingRoutes(app: FastifyInstance, deps: TradingDeps): void {
-  app.post('/auth/login', async (request): Promise<BearerLoginResponse> => {
-    // D-13: todo intento cuenta por IP desde que entra; si sale bien, deja de contar.
-    // Así solo quedan contados los fallidos. Ver `docs/engine-rules.md` §11.
-    const attempt = await deps.rateLimits.startLogin(request.ip);
+  app.post(LOGIN_PATH, async (request, reply): Promise<LoginResponse> => {
+    // D-13: el intento cuenta por dispositivo y por IP desde que entra; si sale bien, deja de
+    // contar. Así solo quedan contados los fallidos. Ver `docs/engine-rules.md` §11.
+    const deviceId = deviceIdOf(request, reply, deps);
+    const attempt = await deps.rateLimits.startLogin(request.ip, deviceId);
+    if (attempt.ipPassedHalfCeiling) {
+      // G-B: una vez por IP y por ventana. El Arquitecto alerta sobre este log.
+      request.log.warn({ ip: request.ip }, 'login: la IP pasó del 50 % de su techo de fallos');
+    }
 
     const body = loginRequestSchema.safeParse(request.body);
     if (!body.success) throw validationError('Envía el código de inscripción en `code`.');
@@ -42,20 +83,38 @@ export function registerTradingRoutes(app: FastifyInstance, deps: TradingDeps): 
     });
     if (!user?.account) throw unauthorized('Código de inscripción inválido.');
 
-    await attempt.succeeded();
+    await attempt.succeeded(user.account.id);
     const expiresAt = deps.now() + deps.tokenTtlMs;
-    return {
-      token: signToken(
-        { userId: user.id, accountId: user.account.id, expiresAt },
-        deps.tokenSecret,
-      ),
-      expiresAt,
-      accountId: user.account.id,
-    };
+    const token = signToken(
+      { userId: user.id, accountId: user.account.id, expiresAt },
+      deps.tokenSecret,
+    );
+    reply.setCookie(SESSION_COOKIE_NAME, token, {
+      httpOnly: true,
+      sameSite: 'strict',
+      path: '/',
+      secure: deps.secureCookies ?? false,
+      maxAge: Math.floor(deps.tokenTtlMs / 1000),
+    });
+    return { accountId: user.account.id, expiresAt };
+  });
+
+  // Siempre 204: borra la cookie y, si la sesión era válida, revoca el token hasta que venza (G2).
+  app.post(LOGOUT_PATH, async (request, reply) => {
+    const token = request.cookies[SESSION_COOKIE_NAME];
+    const claims = token ? verifyToken(token, deps.tokenSecret, deps.now()) : null;
+    if (token && claims) await deps.rateLimits.revokeSession(tokenHash(token), claims.expiresAt);
+    reply.clearCookie(SESSION_COOKIE_NAME, {
+      httpOnly: true,
+      sameSite: 'strict',
+      path: '/',
+      secure: deps.secureCookies ?? false,
+    });
+    return reply.code(204).send();
   });
 
   app.post('/orders', async (request, reply) => {
-    const claims = authenticate(request, deps);
+    const claims = await authenticate(request, deps);
     // D-13: cuenta toda petición autenticada, antes de tocar la base o la cola de la cuenta.
     await deps.rateLimits.consumeOrder(claims.accountId);
     const body = placeOrderRequestSchema.safeParse(request.body);
@@ -87,7 +146,7 @@ export function registerTradingRoutes(app: FastifyInstance, deps: TradingDeps): 
   });
 
   app.get('/account', async (request) => {
-    const claims = authenticate(request, deps);
+    const claims = await authenticate(request, deps);
     return getAccountView(deps, claims.accountId);
   });
 }

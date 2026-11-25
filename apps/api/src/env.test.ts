@@ -36,19 +36,22 @@ describe('loadEnv', () => {
     expect(env).not.toHaveProperty('stalePriceAfterMs');
   });
 
-  it('límites de D-13: 100 fallos de login cada 15 min, 30 órdenes por minuto y 1.000 por día', () => {
+  it('límites de D-13: login 2.000 por IP y 10 por dispositivo cada 15 min; órdenes 30 por minuto y 1.000 por día', () => {
     expect(loadEnv({}).rateLimits).toEqual({
-      loginFailuresPer15Min: 100,
+      loginFailuresPer15Min: 2000,
+      loginFailuresPerDevicePer15Min: 10,
       ordersPerMinute: 30,
       ordersPerDay: 1000,
     });
     const tuned = loadEnv({
-      RATE_LIMIT_LOGIN_FAILURES_PER_15_MIN: '200',
+      RATE_LIMIT_LOGIN_FAILURES_PER_15_MIN: '3000',
+      RATE_LIMIT_LOGIN_FAILURES_PER_DEVICE_PER_15_MIN: '5',
       RATE_LIMIT_ORDERS_PER_MINUTE: '20',
       RATE_LIMIT_ORDERS_PER_DAY: '500',
     });
     expect(tuned.rateLimits).toEqual({
-      loginFailuresPer15Min: 200,
+      loginFailuresPer15Min: 3000,
+      loginFailuresPerDevicePer15Min: 5,
       ordersPerMinute: 20,
       ordersPerDay: 500,
     });

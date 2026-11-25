@@ -109,6 +109,8 @@ describe('fail-open', () => {
     const failing: CounterStore = {
       increment: () => Promise.reject(down),
       decrement: () => Promise.reject(down),
+      addToCappedSet: () => Promise.reject(down),
+      setSize: () => Promise.reject(down),
     };
     const onStoreError = vi.fn();
     const limiter = new RateLimiter(failing, () => MIDNIGHT, onStoreError);
@@ -125,6 +127,8 @@ describe('fail-open', () => {
     const store: CounterStore = {
       increment: async () => 1,
       decrement: () => Promise.reject(down),
+      addToCappedSet: async () => 'added',
+      setSize: async () => 0,
     };
     const onStoreError = vi.fn();
     const decision = await new RateLimiter(store, () => MIDNIGHT, onStoreError).consume(
@@ -154,39 +158,48 @@ describe('loginSubject', () => {
 });
 
 describe('TradingRateLimits', () => {
-  const config = { loginFailuresPer15Min: 2, ordersPerMinute: 2, ordersPerDay: 3 };
+  const config = {
+    loginFailuresPer15Min: 2,
+    loginFailuresPerDevicePer15Min: 100,
+    ordersPerMinute: 2,
+    ordersPerDay: 3,
+  };
+  let devices = 0;
+  /** Un dispositivo nuevo en cada intento: aquí se prueba el techo por IP. */
+  const fresh = () => `dispositivo-${(devices += 1)}`;
 
   it('login: solo quedan contados los fallidos; agotados, 429 con Retry-After', async () => {
     const { limiter, advance } = clockedLimiter();
     const limits = new TradingRateLimits(limiter, config);
     // Los exitosos devuelven su cupo.
-    for (let i = 0; i < 5; i += 1) await (await limits.startLogin('10.0.0.1')).succeeded();
+    for (let i = 0; i < 5; i += 1)
+      await (await limits.startLogin('10.0.0.1', fresh())).succeeded('cuenta');
     // Dos fallidos: el intento entra y nunca llama a succeeded().
-    await limits.startLogin('10.0.0.1');
-    await limits.startLogin('10.0.0.1');
+    await limits.startLogin('10.0.0.1', fresh());
+    await limits.startLogin('10.0.0.1', fresh());
     advance(MINUTE);
 
-    const error = await rejection(limits.startLogin('10.0.0.1'));
+    const error = await rejection(limits.startLogin('10.0.0.1', fresh()));
     expect(error).toMatchObject({
       code: 'rate_limited',
       statusCode: 429,
       headers: { 'retry-after': String((LOGIN_FAILURE_WINDOW_MS - MINUTE) / 1000) },
     });
-    await expect(limits.startLogin('10.0.0.2')).resolves.toBeDefined();
+    await expect(limits.startLogin('10.0.0.2', fresh())).resolves.toBeDefined();
 
     advance(LOGIN_FAILURE_WINDOW_MS);
-    await expect(limits.startLogin('10.0.0.1')).resolves.toBeDefined();
+    await expect(limits.startLogin('10.0.0.1', fresh())).resolves.toBeDefined();
   });
 
   it('login: las direcciones de una misma /64 comparten el límite', async () => {
     const { limiter } = clockedLimiter();
     const limits = new TradingRateLimits(limiter, config);
-    await limits.startLogin('2001:db8:1:2::a');
-    await limits.startLogin('2001:db8:1:2::b');
-    await expect(rejection(limits.startLogin('2001:db8:1:2::c'))).resolves.toMatchObject({
+    await limits.startLogin('2001:db8:1:2::a', fresh());
+    await limits.startLogin('2001:db8:1:2::b', fresh());
+    await expect(rejection(limits.startLogin('2001:db8:1:2::c', fresh()))).resolves.toMatchObject({
       code: 'rate_limited',
     });
-    await expect(limits.startLogin('2001:db8:1:3::a')).resolves.toBeDefined();
+    await expect(limits.startLogin('2001:db8:1:3::a', fresh())).resolves.toBeDefined();
   });
 
   it('órdenes: niega por minuto y luego por día, hasta la medianoche UTC', async () => {
@@ -209,5 +222,143 @@ describe('TradingRateLimits', () => {
 
     advance(DAY);
     await expect(limits.consumeOrder('cuenta')).resolves.toBeUndefined();
+  });
+});
+
+describe('TradingRateLimits: login por dispositivo y techo por IP (Gerente, 2026-11-24 y 2026-11-25)', () => {
+  const config = {
+    loginFailuresPer15Min: 20,
+    loginFailuresPerDevicePer15Min: 10,
+    ordersPerMinute: 30,
+    ordersPerDay: 1000,
+  };
+  const IP = '198.51.100.7';
+
+  function setup() {
+    const { limiter, advance } = clockedLimiter();
+    return { limits: new TradingRateLimits(limiter, config), advance };
+  }
+
+  /** `count` intentos fallidos del dispositivo: entran y nunca llaman a `succeeded()`. */
+  async function fail(limits: TradingRateLimits, device: string, count: number, ip = IP) {
+    for (let i = 0; i < count; i += 1) await limits.startLogin(ip, device);
+  }
+
+  /** Agota el techo de la IP con dispositivos nuevos, 5 fallos cada uno. */
+  async function exhaustIp(limits: TradingRateLimits, ip = IP) {
+    for (let i = 0; i < config.loginFailuresPer15Min / 5; i += 1)
+      await fail(limits, `relleno-${i}`, 5, ip);
+  }
+
+  it('un dispositivo con 10 fallos se bloquea; otro de la misma IP sigue entrando', async () => {
+    const { limits } = setup();
+    await fail(limits, 'a', 10);
+    await expect(rejection(limits.startLogin(IP, 'a'))).resolves.toMatchObject({
+      code: 'rate_limited',
+      statusCode: 429,
+    });
+    await expect(limits.startLogin(IP, 'b')).resolves.toBeDefined();
+  });
+
+  it('con el techo de la IP agotado, un dispositivo conocido entra y uno nuevo no', async () => {
+    const { limits } = setup();
+    await (await limits.startLogin(IP, 'conocido')).succeeded('cuenta');
+    await exhaustIp(limits);
+    await expect(limits.startLogin(IP, 'conocido')).resolves.toBeDefined();
+    await expect(rejection(limits.startLogin(IP, 'nuevo'))).resolves.toMatchObject({
+      code: 'rate_limited',
+    });
+    // El 429 del techo no cuenta contra el dispositivo: no llegó a probar un código.
+    for (let i = 0; i < 20; i += 1) await rejection(limits.startLogin(IP, 'nuevo'));
+    await expect(limits.startLogin('203.0.113.9', 'nuevo')).resolves.toBeDefined();
+  });
+
+  it('un dispositivo conocido que acumula 10 fallos sí se bloquea', async () => {
+    const { limits } = setup();
+    await (await limits.startLogin(IP, 'conocido')).succeeded('cuenta');
+    await exhaustIp(limits);
+    await fail(limits, 'conocido', 10);
+    await expect(rejection(limits.startLogin(IP, 'conocido'))).resolves.toMatchObject({
+      code: 'rate_limited',
+    });
+  });
+
+  it('G-A: 5 dispositivos conocidos por cuenta; el sexto entra pero no queda conocido', async () => {
+    const { limits } = setup();
+    // El primero entra dos veces: ocupa un solo lugar.
+    for (const device of ['d1', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6']) {
+      await (await limits.startLogin(IP, device)).succeeded('cuenta');
+    }
+    await exhaustIp(limits);
+    for (const device of ['d1', 'd2', 'd3', 'd4', 'd5']) {
+      await expect(limits.startLogin(IP, device)).resolves.toBeDefined();
+    }
+    await expect(rejection(limits.startLogin(IP, 'd6'))).resolves.toMatchObject({
+      code: 'rate_limited',
+    });
+  });
+
+  it('G-A: el tope vale 30 días; después la cuenta puede marcar dispositivos nuevos', async () => {
+    let now = MIDNIGHT;
+    const limiter = new RateLimiter(
+      new MemoryCounterStore(() => now),
+      () => now,
+      () => {},
+    );
+    const limits = new TradingRateLimits(limiter, config);
+    for (const device of ['d1', 'd2', 'd3', 'd4', 'd5', 'd6']) {
+      await (await limits.startLogin(IP, device)).succeeded('cuenta');
+    }
+    now += 30 * DAY;
+    await (await limits.startLogin(IP, 'd6')).succeeded('cuenta');
+    await exhaustIp(limits);
+    await expect(limits.startLogin(IP, 'd6')).resolves.toBeDefined();
+  });
+
+  it('G-B: avisa una sola vez por ventana cuando la IP pasa del 50 % del techo', async () => {
+    const { limits, advance } = setup();
+    const flags: boolean[] = [];
+    for (let i = 0; i < 14; i += 1) {
+      flags.push((await limits.startLogin(IP, `d-${i}`)).ipPassedHalfCeiling);
+    }
+    // Techo 20: el 11.º intento pasa del 50 %; el aviso sale ahí y no se repite.
+    expect(flags.indexOf(true)).toBe(10);
+    expect(flags.filter(Boolean)).toHaveLength(1);
+    advance(LOGIN_FAILURE_WINDOW_MS);
+    for (let i = 0; i < 10; i += 1) await limits.startLogin(IP, `e-${i}`);
+    expect((await limits.startLogin(IP, 'e-10')).ipPassedHalfCeiling).toBe(true);
+  });
+
+  it('lista negra: una sesión revocada lo queda hasta su vencimiento, y sin Redis se acepta', async () => {
+    let now = MIDNIGHT;
+    const limiter = new RateLimiter(
+      new MemoryCounterStore(() => now),
+      () => now,
+      () => {},
+    );
+    const limits = new TradingRateLimits(limiter, config);
+    await limits.revokeSession('huella', now + MINUTE);
+    expect(await limits.isSessionRevoked('huella')).toBe(true);
+    expect(await limits.isSessionRevoked('otra')).toBe(false);
+    now += MINUTE;
+    expect(await limits.isSessionRevoked('huella')).toBe(false);
+
+    const down = new Error('sin Redis');
+    const onStoreError = vi.fn();
+    const broken = new TradingRateLimits(
+      new RateLimiter(
+        {
+          increment: () => Promise.reject(down),
+          decrement: () => Promise.reject(down),
+          addToCappedSet: () => Promise.reject(down),
+          setSize: () => Promise.reject(down),
+        },
+        () => now,
+        onStoreError,
+      ),
+      config,
+    );
+    expect(await broken.isSessionRevoked('huella')).toBe(false);
+    expect(onStoreError).toHaveBeenCalledWith(down);
   });
 });
