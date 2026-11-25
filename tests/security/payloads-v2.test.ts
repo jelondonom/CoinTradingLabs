@@ -310,6 +310,49 @@ describe('consulta de velas (`candlesQuerySchema`)', () => {
       RUNS,
     );
   });
+
+  it('V4: un `from`, `to` o `limit` vacío o en blanco cuenta como no enviado; `limit` usa el default', () => {
+    // Espacios que `String.trim` quita: así llega `limit=` o `limit=%20%20` en la query.
+    const blankArb = fc
+      .array(fc.constantFrom(' ', '\t', '\n', '\r', ' ', ' ', '　', '﻿'), {
+        maxLength: 6,
+      })
+      .map((chars) => chars.join(''));
+    // Qué parámetros llegan en blanco: al menos uno, solos o combinados.
+    const blankKeysArb = fc.subarray(['from', 'to', 'limit'], { minLength: 1 });
+    fc.assert(
+      fc.property(
+        symbolArb,
+        intervalArb,
+        blankKeysArb,
+        blankArb,
+        (symbol, interval, keys, blank) => {
+          const query = Object.fromEntries([
+            ['symbol', symbol],
+            ['interval', interval],
+            ...keys.map((key) => [key, blank]),
+          ]);
+          const result = candlesQuerySchema.safeParse(query);
+          expect(result.success, JSON.stringify(query)).toBe(true);
+          if (!result.success) return;
+          expect(result.data).toEqual({
+            symbol,
+            interval,
+            from: undefined,
+            to: undefined,
+            limit: CANDLES_DEFAULT_LIMIT,
+          });
+        },
+      ),
+      {
+        ...RUNS,
+        examples: [
+          ['BTCUSD', '1m', ['limit'], ''],
+          ['BTCUSD', '1m', ['limit'], '   '],
+        ],
+      },
+    );
+  });
 });
 
 describe('generadores', () => {
