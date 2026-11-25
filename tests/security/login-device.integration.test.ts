@@ -8,7 +8,10 @@
  * - límite por dispositivo: cookie `coin_device` que pone la API, 10 fallos cada 15 minutos;
  * - techo por IP: 2.000 fallos cada 15 minutos;
  * - con el techo agotado, un dispositivo que ya entró con un código válido sigue entrando, pero
- *   sigue sujeto a sus 10 fallos.
+ *   sigue sujeto a sus 10 fallos;
+ * - tope de G-A (Gerente, 2026-11-25): una cuenta marca como conocidos como máximo 5 dispositivos
+ *   en 30 días. El sexto entra normalmente, pero no queda conocido. No se expulsa al más antiguo:
+ *   rotar dispositivos anularía el tope.
  *
  * Los casos describen ese comportamiento esperado y van con `it.fails`, como un defecto abierto.
  * El PR del Backend que lo implemente voltea cada línea a `it` (D-21); QA confirma y cierra R17.
@@ -31,6 +34,8 @@ import { generateEnrollmentCode } from '../../apps/api/src/modules/auth/enrollme
 import { prepareTestDatabase } from '../../apps/api/src/testing/test-database.js';
 import { NOW, startApi, type Api } from './api-harness.js';
 
+/** Dispositivos conocidos por cuenta en 30 días (G-A, Gerente, 2026-11-25). */
+const KNOWN_DEVICES_PER_ACCOUNT = 5;
 /** Fallos por dispositivo en cada ventana de 15 minutos (Gerente, 2026-11-24). */
 const DEVICE_FAILURES = 10;
 /** Techo de fallos por IP en cada ventana de 15 minutos (Gerente, 2026-11-24). */
@@ -169,6 +174,31 @@ describe.skipIf(!databaseUrl)('R17: login por dispositivo con techo por IP (D-13
     expect((await known.login(code)).statusCode).toBe(429);
     expect((await device(ip).login(code)).statusCode).toBe(200);
   });
+
+  it.fails(
+    '5: con 5 dispositivos conocidos en la cuenta, el sexto entra pero no salta el techo (G-A)',
+    async () => {
+      const ip = '198.51.100.15';
+      const code = await enroll();
+      const devices = Array.from({ length: KNOWN_DEVICES_PER_ACCOUNT + 1 }, () => device(ip));
+      // Los seis entran normalmente; solo los cinco primeros quedan conocidos.
+      for (const browser of devices) expect((await browser.login(code)).statusCode).toBe(200);
+
+      // Más fallos que el techo, de 10 en 10 por dispositivo nuevo, como en el caso 3.
+      const attempts = IP_FAILURES_CEILING + 10 * DEVICE_FAILURES;
+      for (let i = 0; i < attempts / DEVICE_FAILURES; i += 1) {
+        await device(ip).fail(DEVICE_FAILURES);
+      }
+
+      for (const known of devices.slice(0, KNOWN_DEVICES_PER_ACCOUNT)) {
+        expect((await known.login(code)).statusCode).toBe(200);
+      }
+      const sixth = await devices[KNOWN_DEVICES_PER_ACCOUNT]!.login(code);
+      expect(sixth.statusCode).toBe(429);
+      expect(sixth.json().error.code).toBe('rate_limited');
+    },
+    120_000,
+  );
 });
 
 /** Valor de la cookie `coin_device` en las cabeceras `Set-Cookie`, si viene. */

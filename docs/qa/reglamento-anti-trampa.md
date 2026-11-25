@@ -2,22 +2,25 @@
 
 - Estado: **borrador de QA, sin aprobar**. Las conductas prohibidas, las sanciones y el proceso
   los decide el Gerente General. Los puntos marcados con **[Decide el Gerente]** están abiertos.
-- Versión: 0.3, del 2026-11-18. Versión anterior: 0.2, del mismo día. La 0.3 marca como
-  implementados el mínimo, el redondeo en contra y el tick del futuro (DEF-001 y DEF-002
-  cerrados) y agrega la excepción de cierre total.
+- Versión: 0.4, del 2026-11-25. Versión anterior: 0.3, del 2026-11-18. La 0.4 pone al día los
+  límites de peticiones (números de D-13 validados), agrega el límite de ingreso por dispositivo
+  con techo por IP y nombra la cookie `coin_device` en el aviso de datos (§10, aprobado por el
+  Gerente). La 0.3 marcó como implementados el mínimo, el redondeo en contra y el tick del futuro
+  (DEF-001 y DEF-002 cerrados) y agregó la excepción de cierre total.
 - Reglas de la plataforma: `docs/engine-rules.md`. Decisiones: `docs/decisiones-gerente.md`.
 
 ### Decisiones del Gerente aplicadas en esta versión
 
-| ID   | Tema                          | Sección |
-| ---- | ----------------------------- | ------- |
-| D-01 | Redondeo y monto mínimo       | 5       |
-| D-05 | Catálogo y horario 24/7       | 3       |
-| D-08 | Origen de los precios         | 3       |
-| D-11 | Precio obsoleto y tick futuro | 5       |
-| D-12 | Desempate del ranking         | 9       |
-| D-13 | Bots y scripts prohibidos     | 4 y 5   |
-| D-19 | Aprobación del ranking final  | 9       |
+| ID   | Tema                                                                                                                  | Sección |
+| ---- | --------------------------------------------------------------------------------------------------------------------- | ------- |
+| D-01 | Redondeo y monto mínimo                                                                                               | 5       |
+| D-05 | Catálogo y horario 24/7                                                                                               | 3       |
+| D-08 | Origen de los precios                                                                                                 | 3       |
+| D-11 | Precio obsoleto y tick futuro                                                                                         | 5       |
+| D-12 | Desempate del ranking                                                                                                 | 9       |
+| D-13 | Bots y scripts prohibidos; límites de peticiones (números validados el 2026-11-25)                                    | 4 y 5   |
+| —    | Ingreso por dispositivo, tope de dispositivos conocidos y `coin_device` de 90 días (Gerente, 2026-11-24 y 2026-11-25) | 5 y 10  |
+| D-19 | Aprobación del ranking final                                                                                          | 9       |
 
 ## 1. Alcance
 
@@ -80,19 +83,20 @@ si se reconoce de alguna forma a quien reporta un error.]**
 ## 5. Controles de la plataforma
 
 Se aplican por igual a todas las cuentas. Los límites de peticiones los propone el Backend y los
-valida QA con pruebas de carga (D-13); los valores de QA de la versión 0.1 quedan como
-referencia.
+valida QA (D-13); el Gerente dio por validados los números el 2026-11-25. Los valores exactos
+viven en `docs/engine-rules.md` §11.
 
-| Control                               | Valor                                                                                | Estado                         |
-| ------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------ |
-| Órdenes por cuenta                    | Propone el Backend. Referencia QA: 5/s y 2.000 por día                               | No implementado                |
-| Intentos de ingreso por IP            | Propone el Backend. Referencia QA: 10 por minuto                                     | No implementado                |
-| Monto mínimo por orden (D-01)         | 10 USD; por debajo se rechaza. Vender toda la posición se permite aunque valga menos | Implementado (DEF-001 cerrado) |
-| Redondeo en contra del participante   | Compra hacia arriba al centavo; venta hacia abajo (D-01)                             | Implementado (DEF-001 cerrado) |
-| Órdenes solo con precio fresco (D-11) | Umbral por símbolo definido en `packages/shared`                                     | Parcial: hoy 30 s para todos   |
-| Tick con fecha futura (D-11)          | Más de 2 s en el futuro se considera inválido                                        | Implementado (DEF-002 cerrado) |
-| Órdenes solo dentro de la ventana     | Entre el inicio y el cierre de la competencia                                        | Implementado                   |
-| Sesiones simultáneas por cuenta       | **[Decide el Gerente]**                                                              | No implementado                |
+| Control                                      | Valor                                                                                                                                                                           | Estado                                                       |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Órdenes por cuenta                           | 30 por minuto y 1.000 por día UTC                                                                                                                                               | Implementado (PR #17)                                        |
+| Intentos de ingreso fallidos por dispositivo | 10 cada 15 minutos                                                                                                                                                              | Con la tarea 4 del Backend                                   |
+| Intentos de ingreso fallidos por IP          | Techo de 2.000 cada 15 minutos (hoy: 100 por IP). Con el techo agotado, un dispositivo que ya entró sigue entrando; cada cuenta tiene como máximo 5 dispositivos así en 30 días | Techo de hoy implementado (PR #17); el resto, con la tarea 4 |
+| Monto mínimo por orden (D-01)                | 10 USD; por debajo se rechaza. Vender toda la posición se permite aunque valga menos                                                                                            | Implementado (DEF-001 cerrado)                               |
+| Redondeo en contra del participante          | Compra hacia arriba al centavo; venta hacia abajo (D-01)                                                                                                                        | Implementado (DEF-001 cerrado)                               |
+| Órdenes solo con precio fresco (D-11)        | Umbral por símbolo definido en `packages/shared`                                                                                                                                | Implementado (PR #23)                                        |
+| Tick con fecha futura (D-11)                 | Más de 2 s en el futuro se considera inválido                                                                                                                                   | Implementado (DEF-002 cerrado)                               |
+| Órdenes solo dentro de la ventana            | Entre el inicio y el cierre de la competencia                                                                                                                                   | Implementado                                                 |
+| Sesiones simultáneas por cuenta              | **[Decide el Gerente]**                                                                                                                                                         | No implementado                                              |
 
 ## 6. Señales que QA vigila
 
@@ -151,18 +155,24 @@ La señal por IP pesa poco en este evento: casi todos operarán desde la misma r
   qué dato y cómo se verifica: documento, correo institucional o registro del congreso.]**
 - IP y dispositivo se guardan solo para estos controles y se informan al participante al
   inscribirse.
+- **Cookie `coin_device`** (aprobado por el Gerente, 2026-11-25). La plataforma guarda en el
+  navegador una cookie técnica llamada `coin_device`:
+  - es un número al azar, sin datos de la persona;
+  - sirve solo para contar los intentos de ingreso fallidos de cada dispositivo y para reconocer un
+    dispositivo que ya entró;
+  - dura 90 días;
+  - se informa al participante al inscribirse.
 - Las pruebas de QA no usan datos reales de asistentes.
 
 ## 11. Pendientes para aprobar este reglamento
 
-1. Valores de los límites de peticiones (propuesta del Backend, validación de QA).
-2. Sesiones simultáneas por cuenta y reconocimiento a quien reporta un error.
-3. Sanciones y proceso de descargos.
-4. Verificación de identidad y plazo entre el cierre y la premiación.
-5. Desempate definitivo (D-12 es provisional) y qué órdenes cuentan para desempatar.
-6. Licencia de uso de los precios de Binance (D-08, la consulta el Gerente).
-7. Fuente de los precios: D-05 y D-08 dicen "perpetuos", pero el código toma criptomonedas y
+1. Sesiones simultáneas por cuenta y reconocimiento a quien reporta un error.
+2. Sanciones y proceso de descargos.
+3. Verificación de identidad y plazo entre el cierre y la premiación.
+4. Desempate definitivo (D-12 es provisional) y qué órdenes cuentan para desempatar.
+5. Licencia de uso de los precios de Binance (D-08, la consulta el Gerente).
+6. Fuente de los precios: D-05 y D-08 dicen "perpetuos", pero el código toma criptomonedas y
    EURUSD de spot (`apps/market-data/src/normalizer/symbol-map.ts`). Este reglamento describe lo
    que hace el código; hay que corregir la decisión o el código.
-8. Alcance exacto de la conducta 8 y reclamos por precios obsoletos.
-9. Revisión legal del tratamiento de datos personales.
+7. Alcance exacto de la conducta 8 y reclamos por precios obsoletos.
+8. Revisión legal del tratamiento de datos personales.
