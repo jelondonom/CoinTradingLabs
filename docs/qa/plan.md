@@ -102,10 +102,10 @@ del bloqueo de la fila.
   (los dos cerrados): DEF-003 y DEF-004. `POST /positions/:id/close` y `GET /candles` todavía no
   existen: se probaron solo contra el esquema.
 - Observación sin riesgo: la consulta de velas convierte `limit=0x10` en 16, `1e3` en 1000 y
-  `" 7 "` en 7, siempre dentro de 1–1000. Hoy `limit=` vacío se rechaza, aunque `from=` y `to=`
-  vacíos cuentan como no enviados. El Arquitecto decidió (2026-11-21) que también cuente como no
-  enviado y use 500, y lo cambió en `packages/shared/src/candle.ts` (PR #26). QA agrega ese caso
-  en una tarea propia.
+  `" 7 "` en 7, siempre dentro de 1–1000. Un `from`, `to` o `limit` vacío o en blanco cuenta como no
+  enviado, y `limit` usa 500 (`CANDLES_DEFAULT_LIMIT`), según la decisión del Arquitecto del
+  2026-11-21, que entró con el PR #26. Lo cubre V4 en `payloads-v2.test.ts`. El mismo caso contra
+  la API llega cuando Datos de Mercado publique `GET /candles`.
 - Abuso: fuerza bruta de códigos de inscripción, ráfagas de órdenes, rutas de administración.
 - **Login con IP compartida (R17, D-13).** Hoy el límite cuenta 100 fallos por IP cada 15 minutos y,
   agotado, esa IP recibe 429 aunque el código sea válido. En el wifi del evento, cientos de
