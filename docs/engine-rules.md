@@ -216,18 +216,27 @@ de `API_ERROR_HTTP_STATUS` (`apps/api/src/errors/app-error.ts`): `validation_err
   `Retry-After` y un 401 sigue siendo `unauthorized`.
 - Un error no controlado responde 500 `internal` con un mensaje fijo. El detalle va solo al log.
 
-| Ruta               | Sesión | Qué hace                                                                |
-| ------------------ | ------ | ----------------------------------------------------------------------- |
-| `POST /auth/login` | No     | Recibe `loginRequestSchema`; devuelve `{ token, expiresAt, accountId }` |
-| `POST /orders`     | Sí     | Recibe `placeOrderRequestSchema` y devuelve la orden (`orderSchema`)    |
-| `GET /account`     | Sí     | Devuelve `{ account, positions }` con las posiciones abiertas           |
+| Ruta                | Sesión | Qué hace                                                                               |
+| ------------------- | ------ | -------------------------------------------------------------------------------------- |
+| `POST /auth/login`  | No     | Recibe `loginRequestSchema`; responde `loginResponseSchema` y la cookie `coin_session` |
+| `POST /auth/logout` | No     | Borra la cookie y revoca el token si la sesión era válida; siempre 204                 |
+| `POST /orders`      | Sí     | Recibe `placeOrderRequestSchema` y devuelve la orden (`orderSchema`)                   |
+| `GET /account`      | Sí     | Devuelve `{ account, positions }` con las posiciones abiertas                          |
 
 - **Ingreso**: un código de inscripción por asistente, sin contraseña (aprobado por
   el Gerente el 2026-11-16). El código se recorta antes de medir su largo (de 4 a 64, DEF-004) y
   no distingue mayúsculas, espacios ni guiones. La base
   guarda solo su SHA-256.
-- **Sesión**: cabecera `Authorization: Bearer <token>`. El token dura 7 días por defecto
-  (`AUTH_TOKEN_TTL_HOURS`) y se firma con `AUTH_TOKEN_SECRET`.
+- **Sesión** (D-04): cookie `coin_session` con el token firmado (`HttpOnly`, `SameSite=Strict`,
+  `Path=/` y `Max-Age` de la sesión). El token nunca va en el cuerpo. La cabecera `Authorization`
+  no se mira: con una cookie válida decide la cookie, y un Bearer solo da 401. El token dura 7 días
+  por defecto (`AUTH_TOKEN_TTL_HOURS`) y se firma con `AUTH_TOKEN_SECRET`.
+- **`Secure`**: una sola condición para `coin_session` y `coin_device`, `NODE_ENV=production`
+  (staging y producción, siempre con HTTPS). En desarrollo local por http van sin `Secure`.
+- **Logout** (G2): `POST /auth/logout` borra la cookie y guarda la huella SHA-256 del token en una
+  lista negra de Redis hasta su vencimiento; desde ahí esa cookie da 401. Si Redis cae, la sesión
+  se acepta (falla abierto, como los límites) y queda un aviso en el log. Una sesión robada sin
+  logout sigue valiendo hasta que vence (R12 de QA, parcial).
 - **`POST /orders`** responde 201 con la orden, ejecutada o rechazada. Una orden rechazada no es
   un error HTTP: llega con `status = rejected` y su `rejectReason`. Si el `clientOrderId` ya se
   usó, responde 200 con la orden original.
@@ -248,11 +257,12 @@ Los números los propone el Backend y los valida QA (D-13). Ventanas fijas en Re
 Como las ventanas son fijas, en el borde entre dos ventanas se pueden juntar hasta dos límites
 seguidos (por ejemplo, 30 órdenes a las 10:00:59 y otras 30 a las 10:01:00).
 
-| Ruta               | Llave                              | Qué cuenta                         | Límite | Ventana   | Variable                               |
-| ------------------ | ---------------------------------- | ---------------------------------- | ------ | --------- | -------------------------------------- |
-| `POST /auth/login` | IP del cliente (IPv6: prefijo /64) | Solo intentos fallidos (400 y 401) | 100    | 15 min    | `RATE_LIMIT_LOGIN_FAILURES_PER_15_MIN` |
-| `POST /orders`     | `accountId` del token              | Toda petición autenticada          | 30     | 1 min     | `RATE_LIMIT_ORDERS_PER_MINUTE`         |
-| `POST /orders`     | `accountId` del token              | Toda petición autenticada          | 1.000  | 1 día UTC | `RATE_LIMIT_ORDERS_PER_DAY`            |
+| Ruta               | Llave                              | Qué cuenta                         | Límite | Ventana   | Variable                                          |
+| ------------------ | ---------------------------------- | ---------------------------------- | ------ | --------- | ------------------------------------------------- |
+| `POST /auth/login` | Dispositivo (cookie `coin_device`) | Solo intentos fallidos (400 y 401) | 10     | 15 min    | `RATE_LIMIT_LOGIN_FAILURES_PER_DEVICE_PER_15_MIN` |
+| `POST /auth/login` | IP del cliente (IPv6: prefijo /64) | Solo intentos fallidos (400 y 401) | 2.000  | 15 min    | `RATE_LIMIT_LOGIN_FAILURES_PER_15_MIN`            |
+| `POST /orders`     | `accountId` del token              | Toda petición autenticada          | 30     | 1 min     | `RATE_LIMIT_ORDERS_PER_MINUTE`                    |
+| `POST /orders`     | `accountId` del token              | Toda petición autenticada          | 1.000  | 1 día UTC | `RATE_LIMIT_ORDERS_PER_DAY`                       |
 
 - **Respuesta**: 429 con `{ "error": { "code": "rate_limited", "message" } }` y la cabecera
   `Retry-After` en segundos hasta el fin de la ventana. El código está en el contrato v2.
@@ -260,13 +270,26 @@ seguidos (por ejemplo, 30 órdenes a las 10:00:59 y otras 30 a las 10:01:00).
   descuenta. Así quedan contados solo los fallidos y una ráfaga simultánea no se salta el límite.
   El costo es que, en una ráfaga, los intentos en curso ocupan cupo durante unos milisegundos. Un
   cuerpo que Fastify rechaza antes del handler (JSON inválido) responde 400 y no cuenta; es barato
-  porque no llega a la base. Con el límite agotado, la IP recibe 429 en todo login hasta el fin de
-  la ventana, aunque traiga un código válido. Un login exitoso no reinicia el contador: si lo
-  hiciera, un participante podría alternar su código con intentos al azar. Una IPv6 se agrupa por
-  su prefijo /64: quien controla una /64 podría estrenar dirección en cada intento. Los códigos tienen unos 49 bits
-  (`enrollment-code.ts`): con 100 intentos cada 15 minutos, la probabilidad de que una IP acierte
-  alguno de 800 códigos en 30 días es de unos 3 × 10⁻⁷. Los 100 dejan margen para los errores de
-  tipeo de muchos asistentes detrás de una misma IP (wifi del evento, CGNAT).
+  porque no llega a la base. Un login exitoso no reinicia los contadores: si lo hiciera, un
+  participante podría alternar su código con intentos al azar. Una IPv6 se agrupa por su prefijo
+  /64: quien controla una /64 podría estrenar dirección en cada intento.
+- **Login en una IP compartida** (Gerente, 2026-11-24 y 2026-11-25): cientos de asistentes salen
+  por la misma IP pública del Wi-Fi del evento, así que el límite principal es por dispositivo.
+  - `coin_device`: `HttpOnly`, `SameSite=Lax`, `Path=/` y 90 días. Solo lleva un identificador
+    aleatorio de 128 bits, sin datos de la persona. La API la pone en toda respuesta de login cuando
+    el navegador no la trae, también si el login falla.
+  - Por dispositivo: 10 fallos cada 15 minutos. Aplica siempre, también a un dispositivo conocido.
+  - Techo por IP: 2.000 fallos cada 15 minutos. Con el techo agotado, un dispositivo conocido (que
+    ya entró con un código válido en los últimos 30 días) sigue pudiendo entrar; uno nuevo recibe
+    429, aunque traiga un código válido. Ese 429 no cuenta contra el dispositivo.
+  - Una cuenta marca como conocidos hasta 5 dispositivos distintos cada 30 días (G-A). Varios
+    ingresos desde el mismo dispositivo ocupan un lugar. El sexto entra igual, pero no queda como
+    conocido; no se expulsa al más antiguo.
+  - Cuando una IP pasa del 50 % de su techo, queda un `warn` en el log, uno por IP y por ventana
+    (G-B). El Arquitecto alerta sobre él.
+  - Seguridad: hay 31¹⁰ ≈ 8,2 × 10¹⁴ códigos y 800 válidos (`enrollment-code.ts`). A 8.000 fallos
+    por hora desde una IP, la probabilidad de acertar alguno en 30 días es de unos 6 × 10⁻⁶.
+  - Los números son iniciales; los valida QA (D-13).
 - **Órdenes**: cuentan las ejecutadas, las rechazadas por el motor, las repetidas por
   `clientOrderId` y las mal formadas. Una petición sin sesión (401) no cuenta. Lo que se niega por
   límite no toca la base ni la cola de la cuenta. Una petición negada por el límite de un minuto

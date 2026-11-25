@@ -35,16 +35,17 @@ PR de cada tarea que lo cambie (decisión del Gerente, G8).
 
 ## Hecho
 
-| Tarea                                       | Evidencia                                          |
-| ------------------------------------------- | -------------------------------------------------- |
-| DEF-002: tick con fecha futura (D-11)       | PR #10                                             |
-| DEF-001: redondeo y mínimo de 10 USD (D-01) | PR #12 y PR #15                                    |
-| Límite de peticiones (D-13)                 | PR #17                                             |
-| Tabla de velas (D-18)                       | PR #20                                             |
-| DEF-003: cantidad fuera de `DECIMAL(28,8)`  | PR #21                                             |
-| Umbral obsoleto por símbolo desde `shared`  | PR #23 (QA confirmó en Q5)                         |
-| Alerta alta de `effect`                     | PR #30 del Arquitecto, verificado; QA cerró en Q10 |
-| Tarea 3: errores del contrato y DEF-004     | PR #34                                             |
+| Tarea                                               | Evidencia                                          |
+| --------------------------------------------------- | -------------------------------------------------- |
+| DEF-002: tick con fecha futura (D-11)               | PR #10                                             |
+| DEF-001: redondeo y mínimo de 10 USD (D-01)         | PR #12 y PR #15                                    |
+| Límite de peticiones (D-13)                         | PR #17                                             |
+| Tabla de velas (D-18)                               | PR #20                                             |
+| DEF-003: cantidad fuera de `DECIMAL(28,8)`          | PR #21                                             |
+| Umbral obsoleto por símbolo desde `shared`          | PR #23 (QA confirmó en Q5)                         |
+| Alerta alta de `effect`                             | PR #30 del Arquitecto, verificado; QA cerró en Q10 |
+| Tarea 3: errores del contrato y DEF-004             | PR #34                                             |
+| Tarea 4: sesión por cookie y límite por dispositivo | PR de la rama `feat/api-sesion-cookie`             |
 
 ## Orden (Gerente, G7, 2026-11-22)
 
@@ -115,13 +116,24 @@ final. La 9 (ranking) espera además el esquema `leaderboard.ts` del Arquitecto.
   - **Se descartó** la huella por cabeceras: se falsea fácil y choca entre equipos iguales.
   - **Arquitecto:** `API_TRUST_PROXY` detrás de Caddy, para ver la IP real de cada cliente (lo
     pide el Gerente).
+- **Complemento del Gerente (2026-11-25):**
+  - `coin_device` lleva `Secure` con la misma condición que `coin_session` (`NODE_ENV=production`),
+    una sola para las dos.
+  - G-A: como máximo 5 dispositivos conocidos por cuenta cada 30 días, contando dispositivos
+    distintos. El sexto entra pero no queda conocido; no se expulsa al más antiguo.
+  - G-B: `warn` en el log cuando una IP pasa del 50 % del techo, uno por IP y por ventana.
+  - G-C: `coin_device` dura 90 días.
+  - C1 de QA: con una cookie válida decide la cookie, aunque venga un Bearer; solo Bearer da 401.
+  - R12 queda parcial (QA): cubre al que cierra sesión, no un token robado sin logout.
 - **Pruebas:**
-  - atributos de la cookie, Bearer → 401, logout → 204, y la misma cookie da 401 después del
-    logout;
+  - atributos de las dos cookies, con y sin `Secure`; C1; logout → 204 y la misma cookie da 401;
   - un dispositivo con 10 fallos se bloquea y otro de la misma IP sigue entrando;
   - el techo por IP bloquea a los dispositivos nuevos;
   - con el techo agotado, un dispositivo conocido entra;
-  - un dispositivo conocido que acumula 10 fallos sí se bloquea.
+  - un dispositivo conocido que acumula 10 fallos sí se bloquea;
+  - G-A (5 conocidos por cuenta) y G-B (un solo aviso por ventana);
+  - los 5 casos de QA en `tests/security/login-device.integration.test.ts` pasan de `it.fails` a
+    `it` (D-21).
 - **Checklist:** "Login con cookie `httpOnly` y WS de cuenta autenticado (D-04)", junto con la
   tarea 5.
 - **Avisar a:** Frontend (F4) y QA (R12).

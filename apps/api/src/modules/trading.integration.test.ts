@@ -4,6 +4,7 @@ import {
   apiErrorSchema,
   orderSchema,
   positionSchema,
+  SESSION_COOKIE_NAME,
   staleAfterMs,
 } from '@coin/shared';
 import type { FastifyInstance } from 'fastify';
@@ -36,6 +37,23 @@ function rateLimits(now: () => number, config: RateLimitConfig): TradingRateLimi
   return new TradingRateLimits(new RateLimiter(new MemoryCounterStore(), now, () => {}), config);
 }
 
+/** Cabecera de sesión: la cookie `coin_session` que puso el login (D-04). */
+type Session = { cookie: string };
+
+/** Valor de la cookie `name` en las cabeceras `Set-Cookie` de una respuesta, si viene. */
+function setCookieOf(response: { headers: Record<string, unknown> }, name: string): string | null {
+  const raw = response.headers['set-cookie'];
+  const lines = Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : [];
+  const line = lines.find((value: string) => value.startsWith(`${name}=`));
+  return line ? (line as string) : null;
+}
+
+function sessionOf(response: { headers: Record<string, unknown> }): Session {
+  const line = setCookieOf(response, SESSION_COOKIE_NAME);
+  if (!line) throw new Error('El login no puso la cookie de sesión.');
+  return { cookie: line.split(';')[0] as string };
+}
+
 describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
   let db: Db;
   let app: FastifyInstance;
@@ -66,7 +84,8 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
         tokenTtlMs: 60 * 60 * 1000,
         // Los números propuestos de D-13: los demás tests nunca deben toparse con ellos.
         rateLimits: rateLimits(() => now, {
-          loginFailuresPer15Min: 100,
+          loginFailuresPer15Min: 2000,
+          loginFailuresPerDevicePer15Min: 10,
           ordersPerMinute: 30,
           ordersPerDay: 1000,
         }),
@@ -80,7 +99,7 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
   });
 
   /** Cuenta nueva con sesión iniciada. Cada test usa la suya. */
-  async function newTrader(): Promise<{ accountId: string; headers: { authorization: string } }> {
+  async function newTrader(): Promise<{ accountId: string; headers: Session }> {
     const enrollmentCode = generateEnrollmentCode();
     const { accountId } = await createAccount(db, {
       competitionId,
@@ -95,7 +114,7 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
     });
     expect(login.statusCode).toBe(200);
     expect(login.json().accountId).toBe(accountId);
-    return { accountId, headers: { authorization: `Bearer ${login.json().token}` } };
+    return { accountId, headers: sessionOf(login) };
   }
 
   function setBtc(bid: string, ask: string, ts = now): void {
@@ -103,7 +122,7 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
   }
 
   /** Contrato v2: `clientOrderId` es obligatorio; si el caso no trae uno, se genera. */
-  function order(headers: { authorization: string }, payload: Record<string, unknown>) {
+  function order(headers: Session | { authorization: string }, payload: Record<string, unknown>) {
     return app.inject({
       method: 'POST',
       url: '/orders',
@@ -165,6 +184,118 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
     expect((await app.inject({ method: 'GET', url: '/account' })).statusCode).toBe(401);
     const forged = { authorization: 'Bearer abc.def' };
     expect((await order(forged, payload)).statusCode).toBe(401);
+    expect((await order({ cookie: `${SESSION_COOKIE_NAME}=abc.def` }, payload)).statusCode).toBe(
+      401,
+    );
+  });
+
+  it('sesión por cookie (D-04): atributos de coin_session y coin_device, sin token en el cuerpo', async () => {
+    const enrollmentCode = generateEnrollmentCode();
+    await createAccount(db, {
+      competitionId,
+      displayName: 'Trader',
+      enrollmentCode,
+      now: new Date(now),
+    });
+    const login = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { code: enrollmentCode },
+    });
+    expect(login.statusCode).toBe(200);
+    expect(Object.keys(login.json()).sort()).toEqual(['accountId', 'expiresAt']);
+
+    const session = setCookieOf(login, SESSION_COOKIE_NAME) ?? '';
+    expect(session).toMatch(/HttpOnly/);
+    expect(session).toMatch(/SameSite=Strict/);
+    expect(session).toMatch(/Path=\//);
+    expect(session).toMatch(/Max-Age=3600/);
+    expect(session).not.toMatch(/Secure/); // sin secureCookies: desarrollo local por http
+
+    const device = setCookieOf(login, 'coin_device') ?? '';
+    expect(device).toMatch(/^coin_device=[A-Za-z0-9_-]{22};/);
+    expect(device).toMatch(/HttpOnly/);
+    expect(device).toMatch(/SameSite=Lax/);
+    expect(device).toMatch(/Max-Age=7776000/); // 90 días (G-C)
+
+    // Un login fallido sin cookie de dispositivo también la recibe.
+    const failed = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { code: 'XXXXX-XXXXX' },
+    });
+    expect(failed.statusCode).toBe(401);
+    expect(setCookieOf(failed, 'coin_device')).not.toBeNull();
+  });
+
+  it('C1: con cookie válida decide la cookie; un Bearer solo, aunque sea válido, da 401', async () => {
+    const trader = await newTrader();
+    const token = trader.headers.cookie.slice(`${SESSION_COOKIE_NAME}=`.length);
+    const account = (headers: Record<string, string>) =>
+      app.inject({ method: 'GET', url: '/account', headers });
+    expect(
+      (await account({ ...trader.headers, authorization: `Bearer ${token}` })).statusCode,
+    ).toBe(200);
+    expect((await account({ ...trader.headers, authorization: 'Bearer basura' })).statusCode).toBe(
+      200,
+    );
+    expect((await account({ authorization: `Bearer ${token}` })).statusCode).toBe(401);
+  });
+
+  it('logout: 204, borra la cookie y la misma cookie da 401 después (G2)', async () => {
+    const trader = await newTrader();
+    const account = () => app.inject({ method: 'GET', url: '/account', headers: trader.headers });
+    expect((await account()).statusCode).toBe(200);
+
+    const logout = await app.inject({
+      method: 'POST',
+      url: '/auth/logout',
+      headers: trader.headers,
+    });
+    expect(logout.statusCode).toBe(204);
+    expect(setCookieOf(logout, SESSION_COOKIE_NAME)).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/);
+    expect((await account()).statusCode).toBe(401);
+    // Sin sesión también responde 204.
+    expect((await app.inject({ method: 'POST', url: '/auth/logout' })).statusCode).toBe(204);
+  });
+
+  it('con secureCookies, coin_session y coin_device llevan Secure (una sola condición)', async () => {
+    const secure = await buildApp({
+      checks: {},
+      trading: {
+        db,
+        ticks,
+        queue: new AccountQueue(),
+        now: () => now,
+        tokenSecret: SECRET,
+        tokenTtlMs: 60 * 60 * 1000,
+        secureCookies: true,
+        rateLimits: rateLimits(() => now, {
+          loginFailuresPer15Min: 2000,
+          loginFailuresPerDevicePer15Min: 10,
+          ordersPerMinute: 30,
+          ordersPerDay: 1000,
+        }),
+      },
+    });
+    try {
+      const enrollmentCode = generateEnrollmentCode();
+      await createAccount(db, {
+        competitionId,
+        displayName: 'Trader',
+        enrollmentCode,
+        now: new Date(now),
+      });
+      const login = await secure.inject({
+        method: 'POST',
+        url: '/auth/login',
+        payload: { code: enrollmentCode },
+      });
+      expect(setCookieOf(login, SESSION_COOKIE_NAME)).toMatch(/Secure/);
+      expect(setCookieOf(login, 'coin_device')).toMatch(/Secure/);
+    } finally {
+      await secure.close();
+    }
   });
 
   it('una cuenta nueva nace con 100.000 USD desde el libro contable', async () => {
@@ -507,6 +638,7 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
           tokenTtlMs: 7 * DAY_MS,
           rateLimits: rateLimits(() => clock, {
             loginFailuresPer15Min: 3,
+            loginFailuresPerDevicePer15Min: 100,
             ordersPerMinute: 2,
             ordersPerDay: 3,
           }),
@@ -533,7 +665,7 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
       return limited.inject({ method: 'POST', url: '/auth/login', remoteAddress, payload });
     }
 
-    it('login: tras 3 fallos la IP recibe 429 aun con un código válido, hasta que pasa la ventana', async () => {
+    it('login: tras 3 fallos la IP agota su techo; un dispositivo nuevo recibe 429 aun con un código válido, hasta que pasa la ventana', async () => {
       const code = await enroll();
       const ip = '203.0.113.7';
       // Los logins exitosos no cuentan.
@@ -555,8 +687,8 @@ describe.skipIf(!databaseUrl)('trading contra Postgres', () => {
 
     it('órdenes: 429 por minuto y luego por día; las peticiones sin sesión no cuentan', async () => {
       const session = await login({ code: await enroll() }, '203.0.113.9');
-      const headers = { authorization: `Bearer ${session.json().token}` };
-      const placeOrderAs = (auth?: { authorization: string }) =>
+      const headers = sessionOf(session);
+      const placeOrderAs = (auth?: Session) =>
         limited.inject({
           method: 'POST',
           url: '/orders',

@@ -6,6 +6,7 @@ import {
   type ApiError,
   type HealthResponse,
 } from '@coin/shared';
+import cookie from '@fastify/cookie';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
 import { AppError, internalError, notFound, validationError } from './errors/app-error.js';
@@ -76,6 +77,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     trustProxy: options.trustProxy ?? false,
   });
 
+  await app.register(cookie);
   await app.register(websocket);
 
   app.setErrorHandler((error, request, reply) => {

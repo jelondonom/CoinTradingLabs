@@ -31,7 +31,8 @@ const envSchema = z.object({
         value.split(',').every((entry) => trustedProxyEntry.safeParse(entry.trim()).success),
       'API_TRUST_PROXY debe ser una lista de IP o CIDR separadas por coma.',
     ),
-  RATE_LIMIT_LOGIN_FAILURES_PER_15_MIN: z.coerce.number().int().positive().default(100),
+  RATE_LIMIT_LOGIN_FAILURES_PER_15_MIN: z.coerce.number().int().positive().default(2000),
+  RATE_LIMIT_LOGIN_FAILURES_PER_DEVICE_PER_15_MIN: z.coerce.number().int().positive().default(10),
   RATE_LIMIT_ORDERS_PER_MINUTE: z.coerce.number().int().positive().default(30),
   RATE_LIMIT_ORDERS_PER_DAY: z.coerce.number().int().positive().default(1000),
 });
@@ -84,6 +85,7 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
       : false,
     rateLimits: {
       loginFailuresPer15Min: env.RATE_LIMIT_LOGIN_FAILURES_PER_15_MIN,
+      loginFailuresPerDevicePer15Min: env.RATE_LIMIT_LOGIN_FAILURES_PER_DEVICE_PER_15_MIN,
       ordersPerMinute: env.RATE_LIMIT_ORDERS_PER_MINUTE,
       ordersPerDay: env.RATE_LIMIT_ORDERS_PER_DAY,
     },

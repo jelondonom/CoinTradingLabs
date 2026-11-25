@@ -13,6 +13,12 @@ export type TradingDeps = {
   tokenSecret: string;
   /** Duración de la sesión. */
   tokenTtlMs: number;
+  /**
+   * `Secure` en las cookies `coin_session` y `coin_device`. Una sola condición para las dos, para
+   * que nunca se separen: `NODE_ENV=production` (staging y producción, siempre con HTTPS). Sin
+   * definir, `false`, como en desarrollo local por http.
+   */
+  secureCookies?: boolean;
   /** Límites de peticiones en login y órdenes (D-13). */
   rateLimits: TradingRateLimits;
 };

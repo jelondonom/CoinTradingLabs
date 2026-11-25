@@ -69,4 +69,17 @@ describe.skipIf(!redis)('RedisCounterStore contra Redis', () => {
     await new Promise((resolve) => setTimeout(resolve, 150));
     expect(await valueOf(key)).toBeNull();
   });
+
+  it('conjunto con tope: agrega, reconoce repetidos, se llena y vence solo desde su creación', async () => {
+    const key = `${prefix}:conjunto`;
+    const expiresAt = Date.now() + 60_000;
+    expect(await store.addToCappedSet(key, 'a', 2, expiresAt)).toBe('added');
+    expect(await store.addToCappedSet(key, 'a', 2, expiresAt + 1000)).toBe('present');
+    expect(await store.addToCappedSet(key, 'b', 2, expiresAt + 1000)).toBe('added');
+    expect(await store.addToCappedSet(key, 'c', 2, expiresAt + 1000)).toBe('full');
+    expect(await store.setSize(key)).toBe(2);
+    // Agregar no renueva el vencimiento.
+    expect(Number(await client.call('PEXPIRETIME', key))).toBe(expiresAt);
+    expect(await store.setSize(`${prefix}:sin-conjunto`)).toBe(0);
+  });
 });

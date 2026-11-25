@@ -45,6 +45,7 @@ const app = await buildApp({
     tokenSecret: env.authTokenSecret,
     tokenTtlMs: env.authTokenTtlMs,
     rateLimits: new TradingRateLimits(rateLimiter, env.rateLimits),
+    secureCookies: env.nodeEnv === 'production',
   },
   checks: {
     postgres: async () => {
